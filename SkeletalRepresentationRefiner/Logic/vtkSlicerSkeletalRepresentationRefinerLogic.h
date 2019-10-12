@@ -217,6 +217,8 @@ protected:
                         int nRows, int nCols,
                         std::vector<vtkSpoke*> &crest, std::vector<vtkSpoke*> &interior);
 
+  void ReorderCrestSpokes(int nRows, int nCols, std::vector<vtkSpoke*> &input, std::vector<vtkSpoke*> &output);
+
   void OptimizeCrestSpokeLength(vtkImplicitPolyDataDistance *distanceFunction, vtkSpoke *targetSpoke, double stepSize, int maxIter);
 
   void Transform2ImageCS(double *ptInput, int *ptOutput);
