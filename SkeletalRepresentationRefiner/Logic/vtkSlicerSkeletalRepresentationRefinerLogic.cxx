@@ -48,14 +48,17 @@
 #include <vtkCurvatures.h>
 #include <vtkPointLocator.h>
 #include <vtkAppendPolyData.h>
+#include <vtkLookupTable.h>
 #include <vtkParametricFunctionSource.h>
 #include <vtkImplicitPolyDataDistance.h>
 #include <vtkXMLPolyDataReader.h>
 #include <vtkXMLPolyDataWriter.h>
 #include <vtkXMLDataParser.h>
 #include <vtkSurfaceReconstructionFilter.h>
+#include <vtkColorTransferFunction.h>
 #include <vtkProgrammableSource.h>
 #include <vtkContourFilter.h>
+#include <vtkDistancePolyDataFilter.h>
 #include <vtkReverseSense.h>
 #include "vtkSlicerSkeletalRepresentationInterpolater.h"
 #include "vtkSrep.h"
@@ -65,6 +68,7 @@
 #include "vtkApproximateSignedDistanceMap.h"
 #include "vtkGradientDistanceFilter.h"
 #include <vtkBoundingBox.h>
+#include <vtkMRMLProceduralColorNode.h>
 // STD includes
 #include <cassert>
 const double voxelSpacing = 0.005;
@@ -562,13 +566,15 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
                               pts, quads, foldCurvePts, foldCurveCell,
                               interpolatedSpokes, downSpokes);
 
-    ConnectImpliedCrest(interpolationLevel, nRows, nCols, crest, upSpokes, downSpokes, pts,
-                        quads);
-
     wireFrame->SetPoints(pts);
     wireFrame->SetPolys(quads);
     Visualize(wireFrame, modelPrefix + "Wire frame", 0, 1, 1);
 
+    vtkSmartPointer<vtkAppendPolyData> appendFilter =
+      vtkSmartPointer<vtkAppendPolyData>::New();
+    appendFilter->AddInputData(wireFrame);
+
+    ConnectImpliedCrest(interpolationLevel, nRows, nCols, crest, upSpokes, downSpokes, appendFilter);
     foldCurve->SetPoints(foldCurvePts);
     foldCurve->SetPolys(foldCurveCell);
     Visualize(foldCurve, modelPrefix + "Fold curve", 0, 1, 0, false);
@@ -577,6 +583,79 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
     ConvertSpokes2PolyData(interpolatedSpokes, polySpokes);
     Visualize(polySpokes, modelPrefix + "Primary spokes", 1, 0,0, false);
 
+    // show difference between implied boundary and the target object
+    vtkSmartPointer<vtkPolyData> impliedBoundary = vtkSmartPointer<vtkPolyData>::New();
+    appendFilter->Update();
+    vtkSmartPointer<vtkCleanPolyData> cleanFilter =
+        vtkSmartPointer<vtkCleanPolyData>::New();
+    cleanFilter->SetInputConnection(appendFilter->GetOutputPort());
+    cleanFilter->Update();
+    impliedBoundary = cleanFilter->GetOutput();
+    vtkSmartPointer<vtkPolyData> heatMap = vtkSmartPointer<vtkPolyData>::New();
+    vtkSmartPointer<vtkUnsignedCharArray> colors =
+      vtkSmartPointer<vtkUnsignedCharArray>::New();
+    colors->SetNumberOfComponents(3);
+    colors->SetName("Colors");
+    double minDist=1000, maxDist = -1;
+    vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+    reader->SetFileName(mTargetMeshFilePath.c_str());
+    reader->Update();
+    vtkSmartPointer<vtkPolyData> inputMesh = reader->GetOutput();
+    vtkSmartPointer<vtkPoints> surfacePts = vtkSmartPointer<vtkPoints>::New();
+    vtkSmartPointer<vtkDistancePolyDataFilter> distanceFilter =
+      vtkSmartPointer<vtkDistancePolyDataFilter>::New();
+
+    distanceFilter->SetInputData( 0, inputMesh);
+    distanceFilter->SetInputData( 1, impliedBoundary);
+    distanceFilter->Update();
+    vtkSmartPointer<vtkDataArray> distArray = distanceFilter->GetOutput()->GetPointData()->GetScalars();
+    minDist = distArray->GetRange()[0];
+    maxDist = distArray->GetRange()[1];
+    double sumDistance = 0;
+    for(int i = 0; i < distArray->GetNumberOfTuples(); ++i) {
+        double d = distArray->GetTuple1(i);
+        sumDistance += d * d;
+    }
+    std::cout << "minimum distance: " << minDist <<
+                 " and maximum distance: " << maxDist << " . The ssd is:" << sumDistance << std::endl;
+    vtkMRMLScene *scene = this->GetMRMLScene();
+    if(!scene)
+    {
+        vtkErrorMacro(" Invalid scene");
+        return;
+    }
+
+    // model node
+    vtkSmartPointer<vtkMRMLModelNode> modelNode;
+    modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
+    modelNode->SetScene(scene);
+    modelNode->SetName("heat map");
+    modelNode->SetAndObservePolyData(distanceFilter->GetOutput());
+
+    // display node
+    vtkSmartPointer<vtkMRMLModelDisplayNode> displayModelNode;
+    vtkSmartPointer<vtkColorTransferFunction> colorTransferFunction =
+        vtkSmartPointer<vtkColorTransferFunction>::New();
+    colorTransferFunction->AddRGBPoint(minDist, 0, 0, 1);
+    colorTransferFunction->AddRGBPoint(maxDist, 1, 0, 0);
+    vtkSmartPointer<vtkMRMLProceduralColorNode> colorNode = vtkSmartPointer<vtkMRMLProceduralColorNode>::New();
+    displayModelNode = vtkSmartPointer<vtkMRMLModelDisplayNode>::New();
+    if(displayModelNode == nullptr)
+    {
+        vtkErrorMacro("displayModelNode is NULL");
+        return;
+    }
+    colorNode->SetAndObserveColorTransferFunction(colorTransferFunction);
+    displayModelNode->SetAndObserveColorNodeID(colorNode->GetID());
+    displayModelNode->SetScalarRangeFlag(2);
+    displayModelNode->SetScalarRange(minDist, maxDist);
+    displayModelNode->SetScene(scene);
+//    displayModelNode->SetLineWidth(2.0);
+//    displayModelNode->SetBackfaceCulling(0);
+//    displayModelNode->SetRepresentation(1);
+    modelNode->AddAndObserveDisplayNodeID(displayModelNode->GetID());
+    scene->AddNode(displayModelNode);
+    scene->AddNode(modelNode);
 }
 
 void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeDerivative(std::vector<double> skeletalPoints, int intr, int intc, int nRows, int intCols, double *dXdu, double *dXdv)
@@ -1411,7 +1490,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ConnectImpliedCrest(int interp
                                                                       const std::string &crest,
                                                                       std::vector<vtkSpoke*> &upSpokes,
                                                                       std::vector<vtkSpoke*> &downSpokes,
-                                                                      vtkPoints *vtkNotUsed(pts), vtkCellArray *vtkNotUsed(quads))
+                                                                      vtkAppendPolyData* output)
 {
     std::vector<vtkSpoke*> crestSpokes, topCrest;
     ParseCrest(crest, crestSpokes);
@@ -1539,8 +1618,9 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ConnectImpliedCrest(int interp
             vtkSmartPointer<vtkCleanPolyData>::New();
     cleanFilter->SetInputConnection(appendFilter->GetOutputPort());
     cleanFilter->Update();
-    Visualize(cleanFilter->GetOutput(), "Implied crest", 0, 1, 1);
-
+    vtkSmartPointer<vtkPolyData> crestConnectPoly = cleanFilter->GetOutput();
+    Visualize(crestConnectPoly, "Implied crest", 0, 1, 1);
+    output->AddInputData(crestConnectPoly);
 }
 void vtkSlicerSkeletalRepresentationRefinerLogic::ConnectFoldCurve(const std::vector<vtkSpoke *> &edgeSpokes,
                                                                    vtkPoints *foldCurvePts, vtkCellArray *foldCurveCell)

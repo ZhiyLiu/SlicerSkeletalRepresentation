@@ -47,6 +47,7 @@ class vtkCellArray;
 class vtkSpoke;
 class vtkSrep;
 class vtkImplicitPolyDataDistance;
+class vtkAppendPolyData;
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_SKELETALREPRESENTATIONREFINER_MODULE_LOGIC_EXPORT vtkSlicerSkeletalRepresentationRefinerLogic :
   public vtkSlicerModuleLogic
@@ -165,7 +166,7 @@ protected:
   // Interpolate crest region and connect them with quads
   void ConnectImpliedCrest(int interpolationLevel, int nRows, int nCols,
                            const std::string &crest, std::vector<vtkSpoke*> &upSpokes,std::vector<vtkSpoke*> &downSpokes,
-                           vtkPoints *pts, vtkCellArray *quads);
+                            vtkAppendPolyData* appendFilter);
 
   // connect fold curve macro
   void ConnectFoldCurve(const std::vector<vtkSpoke *>& edgeSpokes, vtkPoints *foldCurvePts, vtkCellArray *foldCurveCell);

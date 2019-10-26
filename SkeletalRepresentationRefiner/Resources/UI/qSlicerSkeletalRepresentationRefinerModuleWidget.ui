@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>525</width>
-    <height>419</height>
+    <height>421</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -335,6 +335,13 @@
     <widget class="QPushButton" name="btn_submit">
      <property name="text">
       <string>Start refinement</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_diff_bdry">
+     <property name="text">
+      <string>Show boundary difference</string>
      </property>
     </widget>
    </item>

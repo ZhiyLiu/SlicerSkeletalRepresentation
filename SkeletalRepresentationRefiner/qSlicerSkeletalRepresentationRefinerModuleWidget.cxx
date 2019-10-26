@@ -143,6 +143,10 @@ void qSlicerSkeletalRepresentationRefinerModuleWidget::showImpliedBoundary()
     d->logic()->ShowImpliedBoundary(interpolationLevel, srepFileName, "Initial ");
 }
 
+void qSlicerSkeletalRepresentationRefinerModuleWidget::showBoundaryDiff()
+{
+}
+
 //-----------------------------------------------------------------------------
 void qSlicerSkeletalRepresentationRefinerModuleWidget::setup()
 {

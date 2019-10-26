@@ -57,6 +57,9 @@ public slots:
   // show initial implied boundary
   void showImpliedBoundary();
 
+  // show heat map of difference on the boundary
+  void showBoundaryDiff();
+
 protected:
   QScopedPointer<qSlicerSkeletalRepresentationRefinerModuleWidgetPrivate> d_ptr;
 

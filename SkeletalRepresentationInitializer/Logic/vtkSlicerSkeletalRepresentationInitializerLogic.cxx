@@ -621,7 +621,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
 
     using namespace Eigen;
     // the number of rows should be odd number
-    double shift = 0.02; // shift fold curve off the inner spokes
+    double shift = 0.1; // shift fold curve off the inner spokes
 
     // 1. derive the best fitting ellipsoid from the deformed mesh
     vtkSmartPointer<vtkPoints> points = mesh->GetPoints();
