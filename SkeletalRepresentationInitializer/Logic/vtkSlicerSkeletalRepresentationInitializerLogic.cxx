@@ -601,7 +601,9 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::ShowFittingEllipsoid(vtkPo
 const double ELLIPSE_SCALE = 0.9;
 const double EPS = 1e-6;
 void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(vtkPolyData *mesh,
-                                                                              int nRows, int nCols, int totalNum, bool reverse)
+                                                                              int nRows, int nCols, int totalNum,
+                                                                               bool rotateX, bool rotateY,
+                                                                               bool rotateZ)
 {
     // create folder if not exist
     const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
@@ -800,15 +802,31 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     SelfAdjointEigenSolver<Eigen::MatrixXd> es_srep(srep_secondMoment);
 
     Matrix3d rotation;
+    std::string arrowName = "Before rotation orientations";
+
     rotation = es_obj.eigenvectors(); // 3 by 3 rotation relative to deformed object
+
+    if(rotateX) {
+        rotation(0,1) *= -1;
+        rotation(1,1) *= -1;
+        rotation(2,1) *= -1;
+        arrowName = "After rotation orientations";
+    }
+    if(rotateY) {
+        rotation(0,2) *= -1;
+        rotation(1,2) *= -1;
+        rotation(2,2) *= -1;
+        arrowName = "After rotation orientations";
+    }
+    if(rotateZ) {
+        rotation(0,0) *= -1;
+        rotation(1,0) *= -1;
+        rotation(2,0) *= -1;
+        arrowName = "After rotation orientations";
+    }
     Matrix3d rot_srep;
     rot_srep = es_srep.eigenvectors().transpose();
     rotation = rotation * rot_srep;
-    std::string arrowName = "Before rotation orientations";
-    if(reverse) {
-        rotation *= -1;
-        arrowName = "After rotation orientations";
-    }
 
     // all skeletal points
     MatrixXd trans_srep = (rotation * transpose_srep).transpose();
@@ -1688,7 +1706,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::DisplayResultSrep(bool fli
     out_file.close();
 }
 
-void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton()
+void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton(bool rotateX, bool rotateY, bool rotateZ)
 {
     const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
     const std::string newEllSurfaceFile = tempFolder + "/forward/" + std::to_string(forwardCount) + ".vtk";
@@ -1701,61 +1719,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton()
     vtkSmartPointer<vtkPolyData> mesh =
         vtkSmartPointer<vtkPolyData>::New();
     mesh = reader->GetOutput();
-    GenerateSrepForEllipsoid(mesh, mRows, mCols, forwardCount, true);
-//    HideNodesByClass("vtkMRMLModelNode");
-
-//    std::string upFileName = tempFolder + "/model/up1.vtk";
-//    std::string downFileName = tempFolder + "/model/down1.vtk";
-//    const std::string crestFileName = tempFolder +"/model/crest1.vtk";
-//    if(mOutputPath.empty()) {
-//        std::cout << "The output path is empty for rotating skeleton." << std::endl;
-//        return;
-//    }
-//    std::string outputUpFileName = mOutputPath + "/up.vtp";
-//    std::string outputDownFileName = mOutputPath + "/down.vtp";
-//    std::string outputCrestFileName = mOutputPath + "/crest.vtp";
-
-//    vtkSmartPointer<vtkPolyDataReader> upSpokeReader = vtkSmartPointer<vtkPolyDataReader>::New();
-//    upSpokeReader->SetFileName(outputUpFileName.c_str());
-//    upSpokeReader->Update();
-//    vtkSmartPointer<vtkPolyData> upSpoke_poly = upSpokeReader->GetOutput();
-
-//    vtkSmartPointer<vtkPolyDataReader> downSpokeReader = vtkSmartPointer<vtkPolyDataReader>::New();
-//    downSpokeReader->SetFileName(downFileName.c_str());
-//    downSpokeReader->Update();
-//    vtkSmartPointer<vtkPolyData> downSpoke_poly = downSpokeReader->GetOutput();
-
-//    vtkSmartPointer<vtkPolyDataReader> crestSpokeReader = vtkSmartPointer<vtkPolyDataReader>::New();
-//    crestSpokeReader->SetFileName(crestFileName.c_str());
-//    crestSpokeReader->Update();
-//    vtkSmartPointer<vtkPolyData> crestSpoke_poly = crestSpokeReader->GetOutput();
-
-//    vtkSmartPointer<vtkPolyData> reorderedUpSpokes = vtkSmartPointer<vtkPolyData>::New();
-//    vtkSmartPointer<vtkPoints> outputPts = vtkSmartPointer<vtkPoints>::New();
-//    vtkSmartPointer<vtkCellArray> outputPolys = vtkSmartPointer<vtkCellArray>::New();
-//    ReorderSpokes(upSpoke_poly, outputPts, outputPolys);
-//    reorderedUpSpokes->SetPoints(outputPts);
-//    reorderedUpSpokes->SetPolys(outputPolys);
-//    vtkSmartPointer<vtkPolyData> vtpUpSpoke = vtkSmartPointer<vtkPolyData>::New();
-//    vtkSmartPointer<vtkPolyData> vtpDownSpoke = vtkSmartPointer<vtkPolyData>::New();
-//    vtkSmartPointer<vtkPolyData> vtpCrestSpoke = vtkSmartPointer<vtkPolyData>::New();
-//    CompletePolyData(upSpoke_poly, vtpUpSpoke);
-//    // save to files
-//    AddModelNodeToScene(reorderedUpSpokes, "reordered spokes for initial object", true, 0, 1, 1);
-//    AddModelNodeToScene(vtpUpSpoke, "up spokes for initial object", true, 0, 1, 1);
-//    vtkSmartPointer<vtkXMLPolyDataWriter> vtpWriter = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
-//    vtpWriter->SetDataModeToAscii();
-//    vtpWriter->SetFileName(outputUpFileName.c_str());
-//    vtpWriter->SetInputData(vtpUpSpoke);
-//    vtpWriter->Update();
-
-//    vtpWriter->SetFileName(outputDownFileName.c_str());
-//    vtpWriter->SetInputData(vtpDownSpoke);
-//    vtpWriter->Update();
-
-//    vtpWriter->SetFileName(outputCrestFileName.c_str());
-//    vtpWriter->SetInputData(vtpCrestSpoke);
-//    vtpWriter->Update();
+    GenerateSrepForEllipsoid(mesh, mRows, mCols, forwardCount, rotateX, rotateY, rotateZ);
 }
 
 void vtkSlicerSkeletalRepresentationInitializerLogic::ReorderSpokes(vtkPolyData *input, vtkPoints* outputPts, vtkCellArray* outputPolys)

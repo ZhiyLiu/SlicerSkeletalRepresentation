@@ -76,7 +76,9 @@ public:
   void ShowFittingEllipsoid(vtkPolyData* mesh, double &rx, double &ry, double &rz);
 
   // generate srep given an ellipsoid and expected rows and columns of medial sheet.
-  void GenerateSrepForEllipsoid(vtkPolyData* mesh, int rows, int cols, int forwardCount, bool reverse = false);
+  void GenerateSrepForEllipsoid(vtkPolyData* mesh, int rows, int cols, int forwardCount,
+                                bool rotateX = false, bool rotateY = false,
+                                bool rotateZ = false);
 
   int InklingFlow(const std::string &filename, double dt, double smooth_amount, int max_iter, int freq_output, double threshold);
 
@@ -99,7 +101,7 @@ public:
   void DisplayResultSrep(bool flip = false);
 
   // reorder skeletal points
-  void RotateSkeleton();
+  void RotateSkeleton(bool rotateX, bool rotateY, bool rotateZ);
   void ReorderSpokes(vtkPolyData* input, vtkPoints* outputPts, vtkCellArray* outputPolys);
 protected:
   vtkSlicerSkeletalRepresentationInitializerLogic();
