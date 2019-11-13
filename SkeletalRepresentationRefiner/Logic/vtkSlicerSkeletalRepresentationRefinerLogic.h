@@ -159,7 +159,7 @@ protected:
 
   // Get all interpolated as well as primary spokes including top, bottom and down
   void ConnectImpliedBoundaryPts(int interpolationLevel, int nRows, int nCols, const std::string &srepFileName,
-                                 vtkPoints *pts, vtkCellArray *quads,
+                                 vtkPolyData *polyImpliedBoundary,
                                  vtkPoints *foldCurvePts, vtkCellArray *foldCurveCell,
                                  std::vector<vtkSpoke*>& interpolated, std::vector<vtkSpoke*>& primary);
 
@@ -223,6 +223,8 @@ protected:
   void OptimizeCrestSpokeLength(vtkImplicitPolyDataDistance *distanceFunction, vtkSpoke *targetSpoke, double stepSize, int maxIter);
 
   void Transform2ImageCS(double *ptInput, int *ptOutput);
+
+  void ConvertPointCloud2Mesh(vtkPolyData* polyData);
 protected:
   std::vector<std::pair<double, double> > mInterpolatePositions;
   //vtkSmartPointer<vtkImageData> mAntiAliasedImage = vtkSmartPointer<vtkImageData>::New();
