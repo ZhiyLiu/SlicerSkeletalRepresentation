@@ -101,6 +101,11 @@ public:
   // show wired frame of implied boundary
   void ShowImpliedBoundary(int interpolationLevel, const std::string& srepFileName, const std::string& modelPrefix);
 
+  // command line interface for refinement
+  void CLIRefine(const std::string &srepFileName, const std::string &imgFileName, const std::string &outputPath,
+                 double stepSize = 0.01, double endCriterion = 0.001, int maxIter = 2000,
+                 double wtImg = 0.004, double wtNormal = 20, double wtSrad = 50, int interpolationLevel = 3);
+
 protected:
   vtkSlicerSkeletalRepresentationRefinerLogic();
   ~vtkSlicerSkeletalRepresentationRefinerLogic() override;

@@ -523,6 +523,20 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
 
 }
 
+void vtkSlicerSkeletalRepresentationRefinerLogic::CLIRefine(const std::string &srepFileName,
+                                                            const std::string &imgFileName,
+                                                            const std::string &outputPath,
+                                                            double stepSize, double endCriterion,
+                                                            int maxIter, double wtImg, double wtNormal, double wtSrad,
+                                                            int interpolationLevel)
+{
+    SetSrepFileName(srepFileName);
+    SetImageFileName(imgFileName);
+    SetOutputPath(outputPath);
+    SetWeights(wtImg, wtNormal, wtSrad);
+    Refine(stepSize, endCriterion, maxIter, interpolationLevel);
+}
+
 void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeDerivative(std::vector<double> skeletalPoints, int intr, int intc, int nRows, int intCols, double *dXdu, double *dXdv)
 {
     // 0-based index of elements if arranged in array
