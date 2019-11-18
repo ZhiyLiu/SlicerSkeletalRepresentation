@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>525</width>
-    <height>369</height>
+    <height>462</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -220,6 +220,38 @@
         </property>
        </widget>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_111">
+        <item>
+         <widget class="QCheckBox" name="cb_flip_green">
+          <property name="text">
+           <string>Flip green</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="cb_flip_red">
+          <property name="text">
+           <string>Flip red</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="cb_flip_blue">
+          <property name="text">
+           <string>Flip blue</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btn_reorder_skeleton">
+        <property name="text">
+         <string>Flip the skeletal sheet</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -274,13 +306,6 @@
        <widget class="QPushButton" name="btn_back_flow">
         <property name="text">
          <string>Generate S-rep for object</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="btn_flip_srep">
-        <property name="text">
-         <string>Flip the S-Rep</string>
         </property>
        </widget>
       </item>

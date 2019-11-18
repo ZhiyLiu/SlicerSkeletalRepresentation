@@ -57,9 +57,8 @@ public slots:
     // set output path for s-rep
     void outputPath();
 
-    // flip srep if needed
-    void flipSrep();
-
+    // reorder / rotate the skeleton
+    void rotateSkeleton();
 protected:
   QScopedPointer<qSlicerSkeletalRepresentationInitializerModuleWidgetPrivate> d_ptr;
 

@@ -86,7 +86,7 @@ void qSlicerSkeletalRepresentationInitializerModuleWidget::setup()
   //QObject::connect(d->btn_inkling_flow, SIGNAL(clicked()), this, SLOT(inklingFlow()));
   QObject::connect(d->btn_back_flow, SIGNAL(clicked()), this, SLOT(backwardFlow()));
   QObject::connect(d->btn_output, SIGNAL(clicked()), this, SLOT(outputPath()));
-  QObject::connect(d->btn_flip_srep, SIGNAL(clicked()), this, SLOT(flipSrep()));
+  QObject::connect(d->btn_reorder_skeleton, SIGNAL(clicked()), this, SLOT(rotateSkeleton()));
 }
 
 void qSlicerSkeletalRepresentationInitializerModuleWidget::pullUpFittingEllipsoid()
@@ -112,10 +112,14 @@ void qSlicerSkeletalRepresentationInitializerModuleWidget::outputPath()
     d->logic()->SetOutputPath(fileName.toUtf8().constData());
 }
 
-void qSlicerSkeletalRepresentationInitializerModuleWidget::flipSrep()
+void qSlicerSkeletalRepresentationInitializerModuleWidget::rotateSkeleton()
 {
     Q_D(qSlicerSkeletalRepresentationInitializerModuleWidget);
-    d->logic()->DisplayResultSrep(true);
+    int numCols = static_cast<int>(d->sl_num_cols->value());
+    int numRows = static_cast<int>(d->sl_num_rows->value());
+    d->logic()->SetRows(numRows);
+    d->logic()->SetCols(numCols);
+    d->logic()->RotateSkeleton(d->cb_flip_green->isChecked(),d->cb_flip_red->isChecked(), d->cb_flip_blue->isChecked());
 }
 
 void qSlicerSkeletalRepresentationInitializerModuleWidget::flow()
