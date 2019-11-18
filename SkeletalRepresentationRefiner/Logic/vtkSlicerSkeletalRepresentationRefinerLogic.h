@@ -79,6 +79,8 @@ public:
 
   // Interpolate srep
   void InterpolateSrep(int interpolationLevel, std::string& srepFileName);
+  void InterpolateSrep(int interpolationLevel, int nRows, int nCols,
+                       std::string& srepFileName, std::string& crestFileName, std::vector<vtkSpoke*> &interpolatedSpokes);
 
   // set weights for three items in the objective function
   void SetWeights(double wtImageMatch, double wtNormal, double wtSrad);
@@ -102,6 +104,10 @@ public:
   // show wired frame of implied boundary
   void ShowImpliedBoundary(int interpolationLevel, const std::string& srepFileName, const std::string& modelPrefix);
 
+  double CLIDistance(int interpolationLevel,
+                     const std::string &srepFileName,
+                     const std::string& modelPrefix,
+                     const std::string& meshFileName);
 protected:
   vtkSlicerSkeletalRepresentationRefinerLogic();
   ~vtkSlicerSkeletalRepresentationRefinerLogic() override;
@@ -225,6 +231,7 @@ protected:
   void Transform2ImageCS(double *ptInput, int *ptOutput);
 
   void ConvertPointCloud2Mesh(vtkPolyData* polyData);
+
 protected:
   std::vector<std::pair<double, double> > mInterpolatePositions;
   //vtkSmartPointer<vtkImageData> mAntiAliasedImage = vtkSmartPointer<vtkImageData>::New();

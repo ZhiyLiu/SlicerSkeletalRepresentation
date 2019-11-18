@@ -43,6 +43,7 @@
 #include <vtkImageData.h>
 #include <vtkPCANormalEstimation.h>
 #include <vtkParametricSpline.h>
+#include <vtkCellLocator.h>
 #include <vtksys/SystemTools.hxx>
 
 #include <vtkPolyDataReader.h>
@@ -239,26 +240,33 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::Refine(double stepSize, double
     UpdateHeader(headerFileName, mOutputPath, &newHeaderFileName);
     //ShowImpliedBoundary(interpolationLevel, newHeaderFileName, "Refined ");
 }
-
-void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolationLevel, std::string& srepFileName)
+void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolationLevel,
+                                                                  std::string& srepFileName)
 {
     // Hide other nodes.
     HideNodesByClass("vtkMRMLModelNode");
+    std::vector<vtkSpoke*> temp;
 
     // 1. Parse the model into a parameter array that needs to be optimized
     int nRows = 0, nCols = 0;
     std::string up, down, crest;
     double crestShift = 0.0;
     ParseHeader(srepFileName, &nRows, &nCols, &crestShift, &up, &down, &crest);
-
-    std::vector<double> coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp;
-    Parse(up, coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp);
-
     if(nRows == 0 || nCols == 0)
     {
         std::cerr << "The s-rep model is empty." << std::endl;
         return;
     }
+    InterpolateSrep(interpolationLevel, nRows, nCols, up, crest, temp);
+}
+
+void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolationLevel, int nRows, int nCols,
+                                                                  std::string& up, std::string& crest,
+                                                                  std::vector<vtkSpoke*> &interpolatedSpokes)
+{
+    std::vector<double> coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp;
+    Parse(up, coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp);
+
 
     vtkSrep *srep = new vtkSrep(nRows, nCols, radiiUp, dirsUp, skeletalPointsUp);
     if(srep->IsEmpty())
@@ -281,7 +289,6 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolat
         steps.push_back(i * interval);
     }
 
-    std::vector<vtkSpoke*> interpolatedSpokes;
     for(int r = 0; r < nRows-1; ++r)
     {
         for(int c = 0; c < nCols-1; ++c)
@@ -544,6 +551,10 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
     // Hide other nodes.
     HideNodesByClass("vtkMRMLModelNode");
 
+    vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+    reader->SetFileName(mTargetMeshFilePath.c_str());
+    reader->Update();
+    vtkSmartPointer<vtkPolyData> inputMesh = reader->GetOutput();
     // 1. Parse the model into a parameter array that needs to be optimized
     int nRows = 0, nCols = 0;
     std::string up, down, crest;
@@ -575,7 +586,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
 //    wireFrame->SetPolys(quads);
 //    Visualize(wireFrame, modelPrefix + "Wire frame", 0, 1, 1);
 //    wireFrame->GetPointData()->SetNormals()
-    ConvertPointCloud2Mesh(wireFrame);
+    //ConvertPointCloud2Mesh(inputMesh);
 
 
     vtkSmartPointer<vtkAppendPolyData> appendFilter =
@@ -605,10 +616,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
     colors->SetNumberOfComponents(3);
     colors->SetName("Colors");
     double minDist=1000, maxDist = -1;
-    vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
-    reader->SetFileName(mTargetMeshFilePath.c_str());
-    reader->Update();
-    vtkSmartPointer<vtkPolyData> inputMesh = reader->GetOutput();
+
     vtkSmartPointer<vtkPoints> surfacePts = vtkSmartPointer<vtkPoints>::New();
     vtkSmartPointer<vtkDistancePolyDataFilter> distanceFilter =
       vtkSmartPointer<vtkDistancePolyDataFilter>::New();
@@ -1010,6 +1018,8 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ParseHeader(const std::string 
                     *upFileName = vtksys::SystemTools::JoinPath(components);
 
                 }
+                // change to relative path
+                *upFileName = estimatePath+ "up.vtp";
             }
             else if(strcmp(eName, "downSpoke")==0)
             {
@@ -1019,6 +1029,8 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ParseHeader(const std::string 
                     components.push_back(*downFileName);
                     *downFileName = vtksys::SystemTools::JoinPath(components);
                 }
+                // change to relative path
+                *downFileName = estimatePath + "down.vtp";
             }
             else if(strcmp(eName, "crestSpoke") == 0)
             {
@@ -1028,6 +1040,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ParseHeader(const std::string 
                     components.push_back(*crestFileName);
                     *crestFileName = vtksys::SystemTools::JoinPath(components);
                 }
+                *crestFileName =estimatePath + "crest.vtp";
             }
             else if(strcmp(eName, "crestShift") == 0)
             {
@@ -2806,5 +2819,56 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ConvertPointCloud2Mesh(vtkPoly
       surface->SetRadius(radius * .99);
       surface->Update();
       Visualize(surface->GetOutput(), "implied boundary", 0, 1, 1);
+}
+
+double vtkSlicerSkeletalRepresentationRefinerLogic::CLIDistance(int interpolationLevel,
+                                                                const string &srepFileName,
+                                                                const string &modelPrefix, const string &meshFileName)
+{
+    std::cout << "cli distance: img-file-name:" << meshFileName << " srep file name:" << srepFileName << std::endl;
+    vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+    reader->SetFileName(meshFileName.c_str());
+    reader->Update();
+    vtkSmartPointer<vtkPolyData> inputMesh = reader->GetOutput();
+    // 1. Parse the model into a parameter array that needs to be optimized
+    int nRows = 0, nCols = 0;
+    std::string up, down, crest;
+    double crestShift = 0.0;
+    ParseHeader(srepFileName, &nRows, &nCols, &crestShift, &up, &down, &crest);
+    if(nRows == 0 || nCols == 0)
+    {
+        std::cerr << "The s-rep model is empty." << std::endl;
+        return -1;
+    }
+    std::vector<double> up_coeff, up_radii, down_radii, up_dirs, down_dirs, up_skeletalPoints, down_skeletalPoints;
+    Parse(up, up_coeff, up_radii, up_dirs, up_skeletalPoints);
+
+    std::vector<vtkSpoke*> interpUpSpokes, interpDownSpokes;
+    InterpolateSrep(interpolationLevel, nRows, nCols, up, crest, interpUpSpokes);
+    InterpolateSrep(interpolationLevel, nRows, nCols, down, crest, interpDownSpokes);
+    vtkSmartPointer<vtkCellLocator> cellLocator = vtkSmartPointer<vtkCellLocator>::New();
+    cellLocator->SetDataSet(inputMesh);
+    cellLocator->BuildLocator();
+    double totalDist = 0.0;
+    for(int i = 0; i < interpUpSpokes.size(); ++i){
+        double pt[3], closestPt[3];
+        interpUpSpokes[i]->GetBoundaryPoint(pt);
+        vtkIdType cellId;
+        int subId;
+        double d; // unsigned distances
+        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
+        totalDist += d;
+    }
+    for(int i = 0; i < interpDownSpokes.size(); ++i) {
+        double pt[3], closestPt[3];
+        interpDownSpokes[i]->GetBoundaryPoint(pt);
+        vtkIdType cellId;
+        int subId;
+        double d; // unsigned distances
+        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
+        totalDist += d;
+    }
+    double avgDist = totalDist / (double)(interpUpSpokes.size() + interpDownSpokes.size());
+    return avgDist;
 }
 
