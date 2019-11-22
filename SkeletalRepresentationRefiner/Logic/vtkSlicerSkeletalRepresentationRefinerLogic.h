@@ -81,6 +81,9 @@ public:
   void InterpolateSrep(int interpolationLevel, std::string& srepFileName);
   void InterpolateSrep(int interpolationLevel, int nRows, int nCols,
                        std::string& srepFileName, std::string& crestFileName, std::vector<vtkSpoke*> &interpolatedSpokes);
+  void InterpolateSrep(int interpolationLevel, int nRows, int nCols,
+                       std::string& srepFileName, std::string& crestFileName,
+                       std::vector<vtkSpoke*> &interpolatedSpokes, std::vector<vtkSpoke*> &interpolatedCrestSpokes);
 
   // set weights for three items in the objective function
   void SetWeights(double wtImageMatch, double wtNormal, double wtSrad);

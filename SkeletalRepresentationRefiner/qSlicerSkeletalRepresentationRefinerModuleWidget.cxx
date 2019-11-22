@@ -145,6 +145,8 @@ void qSlicerSkeletalRepresentationRefinerModuleWidget::showImpliedBoundary()
 
 void qSlicerSkeletalRepresentationRefinerModuleWidget::showBoundaryDiff()
 {
+    Q_D(qSlicerSkeletalRepresentationRefinerModuleWidget);
+    d->logic()->CLIDistance(3, "/playpen/ra_job/EvaluateFit/refined_srep/refined_131614/header.xml", "", "/playpen/ra_job/EvaluateFit/refined_srep/refined_131614/stx_noscale_131614_V06_t1w_RAI_Bias_label_pp_surf_tMeanSPHARM_procalign.vtk");
 }
 
 //-----------------------------------------------------------------------------
@@ -159,6 +161,7 @@ void qSlicerSkeletalRepresentationRefinerModuleWidget::setup()
   QObject::connect(d->btn_submit, SIGNAL(clicked()), this, SLOT(StartRefinement()));
   QObject::connect(d->btn_interp, SIGNAL(clicked()), this, SLOT(StartInterpolate()));
   QObject::connect(d->btn_initial_bdry, SIGNAL(clicked()), this, SLOT(showImpliedBoundary()));
+  QObject::connect(d->btn_diff_bdry, SIGNAL(clicked()), this, SLOT(showBoundaryDiff()));
 
   //QObject::connect(d->btn_image, SIGNAL(clicked()), this, SLOT(GenerateImage()));
   //QObject::connect(d->btn_transform, SIGNAL(clicked()), this, SLOT(TransformSrep()));

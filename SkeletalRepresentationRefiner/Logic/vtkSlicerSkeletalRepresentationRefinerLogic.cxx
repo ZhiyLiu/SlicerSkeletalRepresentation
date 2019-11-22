@@ -78,7 +78,7 @@
 // STD includes
 #include <cassert>
 const double voxelSpacing = 0.005;
-const std::string newFilePrefix = "/refined_";
+const std::string newFilePrefix = "/";
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerSkeletalRepresentationRefinerLogic);
 
@@ -264,10 +264,18 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolat
                                                                   std::string& up, std::string& crest,
                                                                   std::vector<vtkSpoke*> &interpolatedSpokes)
 {
+    std::vector<vtkSpoke *> interpolatedCrestSpokes;
+    InterpolateSrep(interpolationLevel, nRows, nCols, up, crest, interpolatedSpokes, interpolatedCrestSpokes);
+}
+
+void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolationLevel, int nRows, int nCols,
+                                                                  string &srepFileName,
+                                                                  string &crestFileName,
+                                                                  std::vector<vtkSpoke *> &interpolatedSpokes,
+                                                                  std::vector<vtkSpoke *> &interpolatedCrestSpokes)
+{
     std::vector<double> coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp;
-    Parse(up, coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp);
-
-
+    Parse(srepFileName, coeffArrayUp, radiiUp, dirsUp, skeletalPointsUp);
     vtkSrep *srep = new vtkSrep(nRows, nCols, radiiUp, dirsUp, skeletalPointsUp);
     if(srep->IsEmpty())
     {
@@ -339,14 +347,14 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolat
     ConvertSpokes2PolyData(srep->GetAllSpokes(), primarySpokes);
     Visualize(primarySpokes, "Primary", 1, 0, 0);
 
-    std::vector<vtkSpoke*> crestSpokes, topCrest, crestInterpolate;
-    ParseCrest(crest, crestSpokes);
+    std::vector<vtkSpoke*> crestSpokes, topCrest;
+    ParseCrest(crestFileName, crestSpokes);
 
     std::vector<vtkSpoke *> tempSpokes;
-    InterpolateCrest(crestSpokes, interpolatedSpokes, interpolationLevel, nRows, nCols, crestInterpolate, tempSpokes);
+    InterpolateCrest(crestSpokes, interpolatedSpokes, interpolationLevel, nRows, nCols, interpolatedCrestSpokes, tempSpokes);
 
     vtkSmartPointer<vtkPolyData> crestSpokes_poly = vtkSmartPointer<vtkPolyData>::New();
-    ConvertSpokes2PolyData(crestInterpolate, crestSpokes_poly);
+    ConvertSpokes2PolyData(interpolatedCrestSpokes, crestSpokes_poly);
     Visualize(crestSpokes_poly, "Crest", 0, 0, 1);
 
     vtkSmartPointer<vtkPolyData> crestSpokes_primary = vtkSmartPointer<vtkPolyData>::New();
@@ -2857,13 +2865,14 @@ double vtkSlicerSkeletalRepresentationRefinerLogic::CLIDistance(int interpolatio
     std::vector<double> up_coeff, up_radii, down_radii, up_dirs, down_dirs, up_skeletalPoints, down_skeletalPoints;
     Parse(up, up_coeff, up_radii, up_dirs, up_skeletalPoints);
 
-    std::vector<vtkSpoke*> interpUpSpokes, interpDownSpokes;
+    std::vector<vtkSpoke*> interpUpSpokes, interpDownSpokes, interpCrestSpokes;
     InterpolateSrep(interpolationLevel, nRows, nCols, up, crest, interpUpSpokes);
-    InterpolateSrep(interpolationLevel, nRows, nCols, down, crest, interpDownSpokes);
+    InterpolateSrep(interpolationLevel, nRows, nCols, down, crest, interpDownSpokes, interpCrestSpokes);
     vtkSmartPointer<vtkCellLocator> cellLocator = vtkSmartPointer<vtkCellLocator>::New();
     cellLocator->SetDataSet(inputMesh);
     cellLocator->BuildLocator();
     double totalDist = 0.0;
+    vector<double> hist;
     for(int i = 0; i < interpUpSpokes.size(); ++i){
         double pt[3], closestPt[3];
         interpUpSpokes[i]->GetBoundaryPoint(pt);
@@ -2872,6 +2881,7 @@ double vtkSlicerSkeletalRepresentationRefinerLogic::CLIDistance(int interpolatio
         double d; // unsigned distances
         cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
         totalDist += d;
+        hist.push_back(d);
     }
     for(int i = 0; i < interpDownSpokes.size(); ++i) {
         double pt[3], closestPt[3];
@@ -2881,8 +2891,27 @@ double vtkSlicerSkeletalRepresentationRefinerLogic::CLIDistance(int interpolatio
         double d; // unsigned distances
         cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
         totalDist += d;
+        hist.push_back(d);
     }
-    double avgDist = totalDist / (double)(interpUpSpokes.size() + interpDownSpokes.size());
+    for(int i = 0; i < interpCrestSpokes.size(); ++i) {
+        double pt[3], closestPt[3];
+        interpCrestSpokes[i]->GetBoundaryPoint(pt);
+        vtkIdType cellId;
+        int subId;
+        double d; // unsigned distances
+        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
+        totalDist += d;
+        hist.push_back(d);
+    }
+    double avgDist = totalDist / (double)(interpUpSpokes.size() + interpDownSpokes.size() + interpCrestSpokes.size());
+    std::fstream fs;
+    fs.open ("/playpen/ra_job/EvaluateFit/histogram.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    for(int i = 0; i < hist.size(); ++i) {
+        fs << hist[i];
+        if(i < hist.size() - 1) fs << " ";
+    }
+    fs << endl;
+    fs.close();
     return avgDist;
 }
 
