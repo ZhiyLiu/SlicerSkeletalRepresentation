@@ -107,6 +107,8 @@ public:
   // show wired frame of implied boundary
   void ShowImpliedBoundary(int interpolationLevel, const std::string& srepFileName, const std::string& modelPrefix);
 
+  // this heat map shows the difference from implied boundary to target boundary
+  void ShowHeatMap(vtkPolyData* inputMesh, vtkPolyData* impliedBoundary);
   double CLIDistance(int interpolationLevel,
                      const std::string &srepFileName,
                      const std::string& modelPrefix,
