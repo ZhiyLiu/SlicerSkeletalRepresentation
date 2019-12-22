@@ -247,8 +247,8 @@ double vtkSpoke::GetRSradPenalty(double stepSize)
 bool vtkSpoke::IsValid()
 {
     return !(std::isnan(mR) ||
-            std::isnan(mUx) || std::isnan(mUy) || std::isnan(mUz)
-            || std::isnan(mPx) || std::isnan(mPy) || std::isnan(mPz));
+            std::isnan(mUx) || std::isnan(mUy) || std::isnan(mUz)/*
+            || std::isnan(mPx) || std::isnan(mPy) || std::isnan(mPz)*/);
 }
 
 void vtkSpoke::ComputeDerivatives(std::vector<vtkSpoke*> neibors, bool isForward, double stepSize, // input

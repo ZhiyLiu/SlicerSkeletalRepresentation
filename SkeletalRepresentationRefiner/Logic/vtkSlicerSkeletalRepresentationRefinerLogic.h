@@ -105,15 +105,24 @@ public:
   void TransformSrep(const std::string &headerFile);
 
   // show wired frame of implied boundary
-  void ShowImpliedBoundary(int interpolationLevel, const std::string& srepFileName, const std::string& modelPrefix);
+  void ShowImpliedBoundary(int interpolationLevel, const std::string& srepFileName, const std::string& outputFilePath,
+                           const std::string& outputTargetPath);
 
   // this heat map shows the difference from implied boundary to target boundary
   void ShowHeatMap(vtkPolyData* inputMesh, vtkPolyData* impliedBoundary);
+
+  void ComputeCurvatureDiff(vtkPolyData* impliedBoundary, const std::string& outputFilePath,
+                            const std::string& outputTargetPath);
   double CLIDistance(int interpolationLevel,
                      const std::string &srepFileName,
                      const std::string& modelPrefix,
                      const std::string& meshFileName);
 
+  double CLICurviness(int interpolationLevel,
+                     const std::string &srepFileName,
+                     const std::string& outputFilePath,
+                      const std::string& outputTargetPath,
+                     const std::string& meshFileName);
   // command line interface for refinement
   void CLIRefine(const std::string &srepFileName, const std::string &imgFileName, const std::string &outputPath,
                  double stepSize = 0.01, double endCriterion = 0.001, int maxIter = 2000,
@@ -133,7 +142,7 @@ protected:
 protected:
   // interpolate s-rep
   void Interpolate();
-
+  void VisualizeHeatMap(vtkPolyData* inputMesh);
   // parse the s-rep
   // put the spoke length and direction into coeffArray
   void Parse(const std::string &modelFileName, std::vector<double> &coeffArray,
@@ -176,14 +185,14 @@ protected:
 
   // Get all interpolated as well as primary spokes including top, bottom and down
   void ConnectImpliedBoundaryPts(int interpolationLevel, int nRows, int nCols, const std::string &srepFileName,
-                                 vtkPolyData *polyImpliedBoundary,
-                                 vtkPoints *foldCurvePts, vtkCellArray *foldCurveCell,
-                                 std::vector<vtkSpoke*>& interpolated, std::vector<vtkSpoke*>& primary);
+                                 const std::string &outputFilePath, const std::string &outputTargetPath,
+                                 std::vector<vtkSpoke*>& interpolated, std::vector<vtkSpoke*>& primary,
+                                 vtkPolyData* impliedPolyData);
 
   // Interpolate crest region and connect them with quads
   void ConnectImpliedCrest(int interpolationLevel, int nRows, int nCols,
                            const std::string &crest, std::vector<vtkSpoke*> &upSpokes,std::vector<vtkSpoke*> &downSpokes,
-                            vtkAppendPolyData* appendFilter);
+                           vtkPolyData* crestPoly);
 
   // connect fold curve macro
   void ConnectFoldCurve(const std::vector<vtkSpoke *>& edgeSpokes, vtkPoints *foldCurvePts, vtkCellArray *foldCurveCell);
@@ -242,6 +251,8 @@ protected:
   void Transform2ImageCS(double *ptInput, int *ptOutput);
 
   void ConvertPointCloud2Mesh(vtkPolyData* polyData);
+
+  void RetileMesh(vtkPolyData* targetMesh, vtkPolyData* impliedMesh, vtkPolyData* retiledMesh);
 
 protected:
   std::vector<std::pair<double, double> > mInterpolatePositions;
