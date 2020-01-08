@@ -49,22 +49,25 @@ max_iter = args.max_iter
 w_img = args.w_img_match
 w_normal = args.w_normal
 w_geo = args.w_geo
+w_img = 0.00001
+w_normal = 0.00001
+w_geo = 10000
 interp_level = args.interp_level
 for patient_folder in os.listdir(parent_dir):
     case_folder = os.path.join(parent_dir, patient_folder)
 
-    output_folder = os.path.join(output_dir, "refined_" + patient_folder)
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
     srep_file_path = os.path.join(case_folder, 'header.xml')
     img_file_path = None
     for filename in os.listdir(case_folder):
         if re.match(r"(.*)\.vtk", filename) != None:
             img_file_path = os.path.join(case_folder, filename)
-            output_path = os.path.join(output_folder, patient_folder)
+            output_path = os.path.join(output_dir, patient_folder)
             if not os.path.exists(output_path):
                 os.mkdir(output_path)
-            slicer.modules.skeletalrepresentationrefiner.logic().CLIRefine(srep_file_path, img_file_path, output_path, init_size, end_region, max_iter, w_img, w_normal, w_geo, interp_level)
+            refined_header_file = os.path.join(output_path, 'header.xml')
+            if os.path.exists(refined_header_file):
+                print(refined_header_file)
+#            slicer.modules.skeletalrepresentationrefiner.logic().CLIRefine(srep_file_path, img_file_path, output_path, init_size, end_region, max_iter, w_img, w_normal, w_geo, interp_level)
 
 
 print('Done!')

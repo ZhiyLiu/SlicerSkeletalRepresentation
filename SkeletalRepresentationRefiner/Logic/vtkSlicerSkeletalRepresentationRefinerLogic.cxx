@@ -44,6 +44,7 @@
 #include <vtkDoubleArray.h>
 #include <vtkExtractSurface.h>
 #include <vtkImageData.h>
+#include <vtkSmoothPolyDataFilter.h>
 #include <vtkPCANormalEstimation.h>
 #include <vtkParametricSpline.h>
 #include <vtkCellLocator.h>
@@ -81,7 +82,7 @@
 // STD includes
 #include <cassert>
 const double voxelSpacing = 0.005;
-const std::string newFilePrefix = "/refined_";
+const std::string newFilePrefix = "/";
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerSkeletalRepresentationRefinerLogic);
 
@@ -237,7 +238,21 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::Refine(double stepSize, double
     // Update header file
     std::string newHeaderFileName;
     UpdateHeader(headerFileName, mOutputPath, &newHeaderFileName);
-    //ShowImpliedBoundary(interpolationLevel, newHeaderFileName, "Refined ");
+    string outputFilePrefix, outputTargetFilePrefix;
+    if(mOutputPath.find("refined") != std::string::npos) {
+        outputFilePrefix = "/playpen/ra_job/EvaluateFit/Curviness/refined/refined";
+        outputTargetFilePrefix = "/playpen/ra_job/EvaluateFit/Curviness/refined/refined_target";
+        cout << "this is refining" << endl;
+    }
+    else {
+        outputFilePrefix = "/playpen/ra_job/EvaluateFit/Curviness/init/init";
+        outputTargetFilePrefix = "/playpen/ra_job/EvaluateFit/Curviness/init/init_target";
+    }
+
+    cout << "----Before refinement the difference in curvedness:" << endl;
+    ShowImpliedBoundary(interpolationLevel, headerFileName, outputFilePrefix, outputTargetFilePrefix);
+    cout << "++++After refinement echoing" << endl;
+    ShowImpliedBoundary(interpolationLevel, newHeaderFileName, outputFilePrefix, outputTargetFilePrefix);
 }
 void vtkSlicerSkeletalRepresentationRefinerLogic::InterpolateSrep(int interpolationLevel,
                                                                   std::string& srepFileName)
@@ -636,14 +651,21 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
 
     vtkSmartPointer<vtkPolyData> retiledMesh = vtkSmartPointer<vtkPolyData>::New();
     RetileMesh(inputMesh, retImpliedBoundary, retiledMesh);
-    impliedBoundary->DeepCopy(retiledMesh);
+    vtkSmartPointer<vtkSmoothPolyDataFilter> smoothFilter =
+            vtkSmartPointer<vtkSmoothPolyDataFilter>::New();
+    smoothFilter->SetInputData(retiledMesh);
+    smoothFilter->SetNumberOfIterations(10);
+    smoothFilter->SetRelaxationFactor(0.1);
+    smoothFilter->FeatureEdgeSmoothingOff();
+    smoothFilter->BoundarySmoothingOn();
+    smoothFilter->Update();
+    impliedBoundary->DeepCopy(smoothFilter->GetOutput());
+    Visualize(impliedBoundary, "retile mesh", 1, 1, 0);
 
-    std::ofstream fs_pt_num_change;
-    fs_pt_num_change.open (outputFilePath + "_merged_pts.txt",std::fstream::out | std::fstream::app);
-//    fs_pt_num_change << numPtsNorth << " " << numPtsSouth << " " << numPtsCrest << " "<< impliedBoundary->GetNumberOfPoints() << endl;
-    fs_pt_num_change.close();
+    // compute distance difference
+    ComputeDistDiff(impliedBoundary, inputMesh, outputFilePath);
     // compute curvatures
-    ComputeCurvatureDiff(impliedBoundary, outputFilePath, outputTargetPath);
+//    ComputeCurvatureDiff(impliedBoundary, outputFilePath, outputTargetPath);
     ShowHeatMap(inputMesh, impliedBoundary);
 }
 
@@ -652,37 +674,14 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowHeatMap(vtkPolyData* input
     // show difference between implied boundary and the target object for heat map
 
     vtkSmartPointer<vtkPolyData> heatMap = vtkSmartPointer<vtkPolyData>::New();
-    vtkSmartPointer<vtkUnsignedCharArray> colors =
-      vtkSmartPointer<vtkUnsignedCharArray>::New();
-    colors->SetNumberOfComponents(3);
-    colors->SetName("Colors");
-    double minDist=1000, maxDist = -1;
 
-    vtkSmartPointer<vtkPoints> surfacePts = vtkSmartPointer<vtkPoints>::New();
     vtkSmartPointer<vtkDistancePolyDataFilter> distanceFilter =
       vtkSmartPointer<vtkDistancePolyDataFilter>::New();
 
     distanceFilter->SetInputData( 0, inputMesh);
     distanceFilter->SetInputData( 1, impliedBoundary);
+    distanceFilter->SignedDistanceOff();
     distanceFilter->Update();
-    vtkSmartPointer<vtkDataArray> distArray = distanceFilter->GetOutput()->GetPointData()->GetScalars();
-    minDist = distArray->GetRange()[0];
-    maxDist = distArray->GetRange()[1];
-    double sumDistance = 0;
-    // save distances to a file
-    std::ofstream fs;
-    fs.open("/playpen/ra_job/SlicerSkeletalRepresentation/SkeletalRepresentationInitializer/Testing/test_data/dist.txt",
-            std::fstream::out | std::fstream::app);
-
-    for(int i = 0; i < distArray->GetNumberOfTuples(); ++i) {
-        double d = distArray->GetTuple1(i);
-        fs << d << " ";
-        sumDistance += d * d;
-    }
-    fs << endl;
-    fs.close();
-    std::cout << "minimum distance: " << minDist <<
-                 " and maximum distance: " << maxDist << " . The ssd is:" << sumDistance << std::endl;
     VisualizeHeatMap(distanceFilter->GetOutput());
 }
 
@@ -698,6 +697,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
     vtkSmartPointer<vtkDataArray> distArray = inputMesh->GetPointData()->GetScalars();
     double minDist = distArray->GetRange()[0];
     double maxDist = distArray->GetRange()[1];
+    cout << maxDist << " " << minDist << endl;
     // model node
     vtkSmartPointer<vtkMRMLModelNode> modelNode;
     modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
@@ -709,9 +709,11 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
     vtkSmartPointer<vtkMRMLModelDisplayNode> displayModelNode;
     vtkSmartPointer<vtkColorTransferFunction> colorTransferFunction =
         vtkSmartPointer<vtkColorTransferFunction>::New();
-    colorTransferFunction->AddRGBPoint(minDist, 0, 0, 1);
-    colorTransferFunction->AddRGBPoint(maxDist, 1, 0, 0);
-    vtkSmartPointer<vtkMRMLProceduralColorNode> colorNode = vtkSmartPointer<vtkMRMLProceduralColorNode>::New();
+    colorTransferFunction->AddRGBPoint(0.0, 0, 0, 1);
+    colorTransferFunction->AddRGBPoint(1.76, 1, 0, 0);
+    vtkSmartPointer<vtkMRMLNode> newNode = scene->AddNewNodeByClass("vtkMRMLProceduralColorNode", "DistHeatMap");
+    vtkSmartPointer<vtkMRMLProceduralColorNode> colorNode = vtkMRMLProceduralColorNode::SafeDownCast(newNode);
+    colorNode->SetType(13);
     displayModelNode = vtkSmartPointer<vtkMRMLModelDisplayNode>::New();
     if(displayModelNode == nullptr)
     {
@@ -719,15 +721,14 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
         return;
     }
     colorNode->SetAndObserveColorTransferFunction(colorTransferFunction);
+    colorNode->Modified();
+
     displayModelNode->SetAndObserveColorNodeID(colorNode->GetID());
-    displayModelNode->SetScalarRangeFlag(2);
-    displayModelNode->SetScalarRange(minDist, maxDist);
+    displayModelNode->Modified();
     displayModelNode->SetScene(scene);
-//    displayModelNode->SetLineWidth(2.0);
-//    displayModelNode->SetBackfaceCulling(0);
-//    displayModelNode->SetRepresentation(1);
-    modelNode->AddAndObserveDisplayNodeID(displayModelNode->GetID());
+
     scene->AddNode(displayModelNode);
+    modelNode->AddAndObserveDisplayNodeID(displayModelNode->GetID());
     scene->AddNode(modelNode);
 }
 
@@ -755,6 +756,26 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
         std::cout << "error in getting min curvature" << std::endl;
         return;
     }
+
+    curvature_filter->SetCurvatureTypeToGaussian();
+    curvature_filter->Update();
+    vtkSmartPointer<vtkDoubleArray> GC =
+        vtkDoubleArray::SafeDownCast(curvature_filter->GetOutput()->GetPointData()->GetArray("Gauss_Curvature"));
+    if(GC == nullptr)
+    {
+        std::cout << "error in getting gauss curvature" << std::endl;
+        return;
+    }
+
+    curvature_filter->SetCurvatureTypeToMean();
+    curvature_filter->Update();
+    vtkSmartPointer<vtkDoubleArray> MeanC =
+        vtkDoubleArray::SafeDownCast(curvature_filter->GetOutput()->GetPointData()->GetArray("Mean_Curvature"));
+    if(MeanC == nullptr)
+    {
+        std::cout << "error in getting mean curvature" << std::endl;
+        return;
+    }
     std::ofstream fs_max, fs_min;
     fs_max.open (outputFilePath + "_max_curvature.txt",std::fstream::out | std::fstream::app);
     fs_min.open (outputFilePath + "_min_curvature.txt",std::fstream::out | std::fstream::app);
@@ -768,57 +789,6 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
             fs_min << " ";
         }
     }
-//    vtkSmartPointer<vtkSignedDistance> distance =
-//        vtkSmartPointer<vtkSignedDistance>::New();
-//    vtkSmartPointer<vtkPCANormalEstimation> normals =
-//            vtkSmartPointer<vtkPCANormalEstimation>::New();
-//    if (impliedBoundary->GetPointData()->GetNormals())
-//    {
-//        std::cout << "Using normals from input file" << std::endl;
-//        distance->SetInputData (impliedBoundary);
-//    }
-//    else
-//    {
-//        std::cout << "Estimating normals using PCANormalEstimation" << std::endl;
-//        normals->SetInputData (impliedBoundary);
-//        normals->SetSampleSize(1000);
-//        normals->SetNormalOrientationToGraphTraversal();
-//        normals->FlipNormalsOn();
-//        distance->SetInputConnection (normals->GetOutputPort());
-//    }
-//    double bounds[6];
-//      impliedBoundary->GetBounds(bounds);
-//      double range[3];
-//      for (int i = 0; i < 3; ++i)
-//      {
-//          range[i] = bounds[2*i + 1] - bounds[2*i];
-//      }
-//    std::cout << "Range: "
-//              << range[0] << ", "
-//              << range[1] << ", "
-//              << range[2] << std::endl;
-//    int dimension = 512;
-//    double radius;
-//    radius = range[0] / static_cast<double>(dimension) * 3; // ~3 voxels
-//    std::cout << "Radius: " << radius << std::endl;
-
-//    distance->SetRadius(radius);
-//    distance->SetDimensions(dimension, dimension, dimension);
-//    distance->SetBounds(
-//                bounds[0] - range[0] * .1,
-//            bounds[1] + range[0] * .1,
-//            bounds[2] - range[1] * .1,
-//            bounds[3] + range[1] * .1,
-//            bounds[4] - range[2] * .1,
-//            bounds[5] + range[2] * .1);
-
-//    vtkSmartPointer<vtkExtractSurface> surface =
-//            vtkSmartPointer<vtkExtractSurface>::New();
-//    surface->SetInputData(impliedBoundary);
-//    surface->SetRadius(radius * .99);
-//    surface->HoleFillingOn();
-//    surface->Update();
-//    Visualize(surface->GetOutput(), "surface", 1, 0, 0);
     fs_max << endl;
     fs_max.close();
     fs_min << endl;
@@ -827,6 +797,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
     // difference of curviness from target boundary
     vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
     reader->SetFileName(mTargetMeshFilePath.c_str());
+//    reader->SetFileName("/playpen/ra_job/EvaluateFit/one_eg_curvedness/init/init_implied_boundary.vtk");
     reader->Update();
     vtkSmartPointer<vtkPolyData> targetMesh = reader->GetOutput();
     vtkSmartPointer<vtkPolyData> heatmapCurvedness = vtkSmartPointer<vtkPolyData>::New();
@@ -893,80 +864,116 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
         vtkSmartPointer<vtkFloatArray>::New();
     int numPts = targetMesh->GetNumberOfPoints();
       scalars->SetNumberOfValues( numPts );
+    double totalDeltaR = 0;
     for(int i = 0; i < numPts; ++i) {
-        double testPoint[3];
-        double closestPoint[3];//the coordinates of the closest point will be returned here
-        double closestPointDist2; //the squared distance to the closest point will be returned here
-        vtkIdType cellId = 0; //the cell id of the cell containing the closest point will be returned here
-        int subId; //this is rarely used (in triangle strips only, I believe)
-        targetMesh->GetPoint(i, testPoint);
-        cellLocator->FindClosestPoint(testPoint, closestPoint, cellId, subId, closestPointDist2);
+//        double testPoint[3];
+//        double closestPoint[3];//the coordinates of the closest point will be returned here
+//        double closestPointDist2; //the squared distance to the closest point will be returned here
+//        vtkIdType cellId = 0; //the cell id of the cell containing the closest point will be returned here
+//        int subId; //this is rarely used (in triangle strips only, I believe)
+//        targetMesh->GetPoint(i, testPoint);
+//        cellLocator->FindClosestPoint(testPoint, closestPoint, cellId, subId, closestPointDist2);
         double k_min_target = MinC_target->GetValue(i);
         double k_max_target = MC_target->GetValue(i);
         double r_target = sqrt((k_min_target * k_min_target + k_max_target * k_max_target)/2);
 
-        //
-        vtkSmartPointer<vtkCell> cell;
-        cell = impliedBoundary->GetCell(cellId);
-        vtkSmartPointer<vtkIdList> candidatePts = cell->GetPointIds();
-        // average R over all nearby points on the implied mesh
+//        //
+//        vtkSmartPointer<vtkCell> cell;
+//        cell = impliedBoundary->GetCell(cellId);
+//        vtkSmartPointer<vtkIdList> candidatePts = cell->GetPointIds();
+//        // average R over all nearby points on the implied mesh
 
-        double avgK_max = 0;
-        double avgK_min = 0;
-        double local_c_max = -DBL_MAX;
-        int nPts = candidatePts->GetNumberOfIds();
-        for(int j = 0; j < nPts; ++j) {
-            double local_k2 = MinC->GetValue(candidatePts->GetId(j));
-            double local_k1 = MC->GetValue(candidatePts->GetId(j));
-            avgK_min += local_k2;
-            avgK_max += local_k1;
-            double local_r = sqrt((local_k1 * local_k1 + local_k2 * local_k2) / 2);
-            if(local_r > local_c_max) local_c_max = local_r;
-        }
-        scalars->SetValue(i, static_cast<float>(local_c_max));
-//        if(local_c_max > 250) {
-//            cout << "big curv:" << mTargetMeshFilePath << " value: " << local_c_max << endl;
-//            scalars->SetValue(i, static_cast<float>(local_c_max));
+//        double avgK_max = 0;
+//        double avgK_min = 0;
+//        double local_c_max = -DBL_MAX;
+//        int nPts = candidatePts->GetNumberOfIds();
+//        for(int j = 0; j < nPts; ++j) {
+//            double local_k2 = MinC->GetValue(candidatePts->GetId(j));
+//            double local_k1 = MC->GetValue(candidatePts->GetId(j));
+//            avgK_min += local_k2;
+//            avgK_max += local_k1;
+//            double local_r = sqrt((local_k1 * local_k1 + local_k2 * local_k2) / 2);
+//            if(local_r > local_c_max) local_c_max = local_r;
 //        }
-//        else {
-//            scalars->SetValue(i, static_cast<float>(0.0));
-//        }
-        avgK_max /= nPts;
-        avgK_min /= nPts;
-        double r_implied = sqrt((avgK_min * avgK_min + avgK_max * avgK_max)/2);
-        double S = -2 * atan((k_max_target + k_min_target) / (k_max_target - k_min_target)) / vtkMath::Pi();
-        double s_implied = -2 * atan((avgK_max + avgK_min) / (avgK_max - avgK_min)) / vtkMath::Pi();
+
+
+//        avgK_max /= nPts;
+//        avgK_min /= nPts;
+//        double r_implied = sqrt((avgK_min * avgK_min + avgK_max * avgK_max)/2);
+//        double S = -2 * atan((k_max_target + k_min_target) / (k_max_target - k_min_target)) / vtkMath::Pi();
+//        double s_implied = -2 * atan((avgK_max + avgK_min) / (avgK_max - avgK_min)) / vtkMath::Pi();
 //        double logR = log(r_implied+0.00001);
 //        double logR_implied = log(r_implied+0.00001);
 //        double targetC = logR * 2 / vtkMath::Pi();
         //double delatC = (logR - logR_implied) * 2 / vtkMath::Pi();
-        double deltaR = (r_target - r_implied) * std::abs(closestPointDist2);
-        if(std::isinf(deltaR) || std::isnan(deltaR))
-        {
-            //delatC = 1000.0;
-            std::cout << "the delta C is inf, target R:" << r_target << " vs. implied R:" << r_implied << " dist:" << closestPointDist2 << endl;
-        }
-        if(r_target - r_implied > 3.5) {
-            cout << "r_target:   " << r_target  << " r_implied: " << r_implied<< endl;
-        }
-        if(std::abs(deltaR) > 20) {
-            cout << "delta R too negative:   " << deltaR  << " weight: " << std::abs(closestPointDist2) << endl;
-        }
+//        double deltaR = (r_target - r_implied) * std::abs(closestPointDist2);
+//        if(std::isinf(deltaR) || std::isnan(deltaR))
+//        {
+//            //delatC = 1000.0;
+//            std::cout << "the delta C is inf, target R:" << r_target << " vs. implied R:" << r_implied << " dist:" << closestPointDist2 << endl;
+//        }
+//        if(r_target - r_implied > 3.5) {
+//            cout << "r_target:   " << r_target  << " r_implied: " << r_implied<< endl;
+//        }
+//        if(std::abs(deltaR) > 20) {
+//            cout << "delta R too negative:   " << deltaR  << " weight: " << std::abs(closestPointDist2) << endl;
+//        }
+//        fs_curv << deltaR;
+//        fs_shape_diff << S-s_implied;
+        double k_max_implied = MC->GetValue(i);
+        double k_min_implied = MinC->GetValue(i);
+        double r_implied = sqrt((k_max_implied * k_max_implied + k_min_implied * k_min_implied)/2);
+        double deltaR = r_target - r_implied;
+        scalars->SetValue(i, static_cast<float>(deltaR));
         fs_curv << deltaR;
-        fs_shape_diff << S-s_implied;
-
         if(i < targetMesh->GetNumberOfPoints() - 1)
         {
             fs_curv << " ";
             fs_shape_diff << " ";
         }
+        if(deltaR < 0) {
+            totalDeltaR += deltaR;
+//            cout << "delta < 0:" << deltaR << " Gauss curvature: " <<GC->GetValue(i)
+//                                << " mean curvature:" << MeanC->GetValue(i) << mTargetMeshFilePath << endl;
+        }
     }
+    cout << "total delta R < 0:" << totalDeltaR << endl;
     fs_curv << endl;
     fs_shape_diff << endl;
     fs_shape_diff.close();
     fs_curv.close();
     heatmapCurvedness->GetPointData()->SetScalars(scalars);
     VisualizeHeatMap(heatmapCurvedness);
+}
+
+void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeDistDiff(vtkPolyData *impliedBoundary,
+                                                                  vtkPolyData *inputMesh,
+                                                                  const string &outputFilePath)
+{
+    vtkSmartPointer<vtkCellLocator> cellLocator = vtkSmartPointer<vtkCellLocator>::New();
+    cellLocator->SetDataSet(impliedBoundary);
+    cellLocator->BuildLocator();
+    double totalDist = 0.0;
+    vector<double> hist;
+    for(int i = 0; i < inputMesh->GetNumberOfPoints(); ++i){
+        double pt[3], closestPt[3];
+        inputMesh->GetPoint(i, pt);
+        vtkIdType cellId;
+        int subId;
+        double d; // squared distances
+        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
+        totalDist += d;
+        hist.push_back(d);
+    }
+    cout << "total dist:" << totalDist << endl;
+    std::fstream fs;
+    fs.open (outputFilePath, std::fstream::in | std::fstream::out | std::fstream::app);
+    for(int i = 0; i < hist.size(); ++i) {
+        fs << hist[i];
+        if(i < hist.size() - 1) fs << " ";
+    }
+    fs << endl;
+    fs.close();
 }
 
 void vtkSlicerSkeletalRepresentationRefinerLogic::CLIRefine(const std::string &srepFileName,
@@ -1912,28 +1919,35 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ConnectImpliedCrest(int interp
             double u[3] = {uInterp, uInterp, uInterp};
             splineRadial->Evaluate(u, ptInterp, du);
             vtkIdType id_curr = triangleCrestPts->InsertNextPoint(ptInterp);
-            int id_pre = 0;
+            int id_left = 0;
             if(i > 0 && j >0) {
                 // there are # (shares) interpolated points across crest
-                id_pre = id_curr - (shares+1) - 1;
+                id_left = id_curr - (shares+1) - 1;
             }
             else if (j > 0){
                 // the first cross crest line should connect with the last one
-                id_pre = j-1 + (shares+1) * (crestInterpSpokes.size() - 2);
+                id_left = j-1 + (shares+1) * (crestInterpSpokes.size() - 2);
             }
             else continue;
-            vtkSmartPointer<vtkTriangle> triangle = vtkSmartPointer<vtkTriangle>::New();
-            triangle->GetPointIds()->SetId(0, id_pre);
-            triangle->GetPointIds()->SetId(1, id_curr-1);
-            triangle->GetPointIds()->SetId(2, id_curr);
-            triangleCrestCell->InsertNextCell(triangle);
 
-//            vtkSmartPointer<vtkTriangle> triangle2 = vtkSmartPointer<vtkTriangle>::New();
-//            triangle2->GetPointIds()->SetId(0, id_curr);
-//            triangle2->GetPointIds()->SetId(1, id_pre-1);
-//            triangle2->GetPointIds()->SetId(2, id_pre);
-//            triangleCrestCell->InsertNextCell(triangle2);
+
+            if(j > 0) {
+                // right bot triangle
+                vtkSmartPointer<vtkTriangle> triangle = vtkSmartPointer<vtkTriangle>::New();
+                triangle->GetPointIds()->SetId(0, id_left);
+                triangle->GetPointIds()->SetId(1, id_curr-1);// righttop point
+                triangle->GetPointIds()->SetId(2, id_curr); // right bot point
+                triangleCrestCell->InsertNextCell(triangle);
+
+                // left top triangle
+//                vtkSmartPointer<vtkTriangle> triangle2 = vtkSmartPointer<vtkTriangle>::New();
+//                triangle2->GetPointIds()->SetId(0, id_left);
+//                triangle2->GetPointIds()->SetId(1, id_left-1);
+//                triangle2->GetPointIds()->SetId(2, id_curr-1);
+//                triangleCrestCell->InsertNextCell(triangle2);
+            }
         }
+
         appendFilter->AddInputData(functionSourceRadial->GetOutput());
     }
     interpS->SetPoints(interpSPts);
@@ -3200,83 +3214,20 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::RetileMesh(vtkPolyData *target
     cleanFilter->Update();
     retiledMesh->DeepCopy(cleanFilter->GetOutput());
     //cout << "after clean point num:" << retiledMesh->GetNumberOfPoints() << endl;
-    Visualize(retiledMesh, "retile mesh", 1, 1, 0);
 
 }
 
-double vtkSlicerSkeletalRepresentationRefinerLogic::CLIDistance(int interpolationLevel,
+void vtkSlicerSkeletalRepresentationRefinerLogic::CLIDistance(int interpolationLevel,
                                                                 const string &srepFileName,
-                                                                const string &modelPrefix, const string &meshFileName)
+                                                                const string &outputFilePrefix, const string &meshFileName)
 {
-    std::cout << "cli distance: img-file-name:" << meshFileName << " srep file name:" << srepFileName << std::endl;
-    vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
-    reader->SetFileName(meshFileName.c_str());
-    reader->Update();
-    vtkSmartPointer<vtkPolyData> inputMesh = reader->GetOutput();
-    // 1. Parse the model into a parameter array that needs to be optimized
-    int nRows = 0, nCols = 0;
-    std::string up, down, crest;
-    double crestShift = 0.0;
-    ParseHeader(srepFileName, &nRows, &nCols, &crestShift, &up, &down, &crest);
-    if(nRows == 0 || nCols == 0)
-    {
-        std::cerr << "The s-rep model is empty." << std::endl;
-        return -1;
-    }
-    std::vector<double> up_coeff, up_radii, down_radii, up_dirs, down_dirs, up_skeletalPoints, down_skeletalPoints;
-    Parse(up, up_coeff, up_radii, up_dirs, up_skeletalPoints);
+    SetImageFileName(meshFileName);
+    SetSrepFileName(srepFileName);
+    ShowImpliedBoundary(interpolationLevel, srepFileName, outputFilePrefix, "");
 
-    std::vector<vtkSpoke*> interpUpSpokes, interpDownSpokes, interpCrestSpokes;
-    InterpolateSrep(interpolationLevel, nRows, nCols, up, crest, interpUpSpokes);
-    InterpolateSrep(interpolationLevel, nRows, nCols, down, crest, interpDownSpokes, interpCrestSpokes);
-    vtkSmartPointer<vtkCellLocator> cellLocator = vtkSmartPointer<vtkCellLocator>::New();
-    cellLocator->SetDataSet(inputMesh);
-    cellLocator->BuildLocator();
-    double totalDist = 0.0;
-    vector<double> hist;
-    for(int i = 0; i < interpUpSpokes.size(); ++i){
-        double pt[3], closestPt[3];
-        interpUpSpokes[i]->GetBoundaryPoint(pt);
-        vtkIdType cellId;
-        int subId;
-        double d; // unsigned distances
-        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
-        totalDist += d;
-        hist.push_back(d);
-    }
-    for(int i = 0; i < interpDownSpokes.size(); ++i) {
-        double pt[3], closestPt[3];
-        interpDownSpokes[i]->GetBoundaryPoint(pt);
-        vtkIdType cellId;
-        int subId;
-        double d; // unsigned distances
-        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
-        totalDist += d;
-        hist.push_back(d);
-    }
-    for(int i = 0; i < interpCrestSpokes.size(); ++i) {
-        double pt[3], closestPt[3];
-        interpCrestSpokes[i]->GetBoundaryPoint(pt);
-        vtkIdType cellId;
-        int subId;
-        double d; // unsigned distances
-        cellLocator->FindClosestPoint(pt, closestPt, cellId, subId, d);
-        totalDist += d;
-        hist.push_back(d);
-    }
-    double avgDist = totalDist / (double)(interpUpSpokes.size() + interpDownSpokes.size() + interpCrestSpokes.size());
-    std::fstream fs;
-    fs.open ("/playpen/ra_job/EvaluateFit/histogram.txt", std::fstream::in | std::fstream::out | std::fstream::app);
-    for(int i = 0; i < hist.size(); ++i) {
-        fs << hist[i];
-        if(i < hist.size() - 1) fs << " ";
-    }
-    fs << endl;
-    fs.close();
-    return avgDist;
 }
 
-double vtkSlicerSkeletalRepresentationRefinerLogic::CLICurviness(int interpolationLevel, const string &srepFileName,
+void vtkSlicerSkeletalRepresentationRefinerLogic::CLICurviness(int interpolationLevel, const string &srepFileName,
                                                                  const string &outputFilePath,
                                                                  const string &outputTargetPath, const string &meshFileName)
 {

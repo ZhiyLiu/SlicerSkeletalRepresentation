@@ -113,12 +113,14 @@ public:
 
   void ComputeCurvatureDiff(vtkPolyData* impliedBoundary, const std::string& outputFilePath,
                             const std::string& outputTargetPath);
-  double CLIDistance(int interpolationLevel,
+  void ComputeDistDiff(vtkPolyData* impliedBoundary, vtkPolyData* targetBoundary, const std::string &outputFilePath);
+
+  void CLIDistance(int interpolationLevel,
                      const std::string &srepFileName,
                      const std::string& modelPrefix,
                      const std::string& meshFileName);
 
-  double CLICurviness(int interpolationLevel,
+  void CLICurviness(int interpolationLevel,
                      const std::string &srepFileName,
                      const std::string& outputFilePath,
                       const std::string& outputTargetPath,
