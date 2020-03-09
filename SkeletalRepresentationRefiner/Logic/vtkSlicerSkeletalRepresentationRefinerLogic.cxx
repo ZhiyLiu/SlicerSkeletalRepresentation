@@ -645,7 +645,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
         vtkSmartPointer<vtkCleanPolyData>::New();
     cleanFilter->SetInputConnection(appendFilter->GetOutputPort());
     cleanFilter->Update();
-    vtkSmartPointer<vtkPolyData> retImpliedBoundary = cleanFilter->GetOutput();
+    vtkSmartPointer<vtkPolyData> retImpliedBoundary = appendFilter->GetOutput();
 
     Visualize(retImpliedBoundary, "Overall implied boundary", 0, 1, 1);
 
@@ -661,12 +661,21 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
     smoothFilter->Update();
     impliedBoundary->DeepCopy(smoothFilter->GetOutput());
     Visualize(impliedBoundary, "retile mesh", 1, 1, 0);
+    if(impliedBoundary->GetNumberOfPoints() != 1002) {
+        cout << outputFilePath << " has different number of points" << endl;
+    }
+
+    // save retiled implied boundary to files
+    vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+    writer->SetFileName(outputFilePath.c_str());
+    writer->SetInputData(smoothFilter->GetOutput());
+    writer->Write();
 
     // compute distance difference
-    ComputeDistDiff(impliedBoundary, inputMesh, outputFilePath);
+//    ComputeDistDiff(impliedBoundary, inputMesh, outputFilePath);
     // compute curvatures
 //    ComputeCurvatureDiff(impliedBoundary, outputFilePath, outputTargetPath);
-    ShowHeatMap(inputMesh, impliedBoundary);
+ //   ShowHeatMap(inputMesh, impliedBoundary);
 }
 
 void vtkSlicerSkeletalRepresentationRefinerLogic::ShowHeatMap(vtkPolyData* inputMesh, vtkPolyData* impliedBoundary)
@@ -988,6 +997,15 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::CLIRefine(const std::string &s
     SetOutputPath(outputPath);
     SetWeights(wtImg, wtNormal, wtSrad);
     Refine(stepSize, endCriterion, maxIter, interpolationLevel);
+}
+
+void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeImpliedPDM(const string &srepFileName,
+                                                                    const string &imgFileName,
+                                                                    const string &outputPath,
+                                                                    int interpolationLevel)
+{
+    SetImageFileName(imgFileName);
+    ShowImpliedBoundary(interpolationLevel, srepFileName, outputPath, "ignore_target");
 }
 
 void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeDerivative(std::vector<double> skeletalPoints, int intr, int intc, int nRows, int intCols, double *dXdu, double *dXdv)
@@ -1337,6 +1355,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ParseHeader(const std::string 
                 }
                 // change to relative path
                 *upFileName = estimatePath+ "up.vtp";
+                //cout <<"header file " << headerFileName <<  "use the final up file name:" << *upFileName << endl;
             }
             else if(strcmp(eName, "downSpoke")==0)
             {
@@ -3212,7 +3231,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::RetileMesh(vtkPolyData *target
     vtkSmartPointer<vtkCleanPolyData> cleanFilter = vtkSmartPointer<vtkCleanPolyData>::New();
     cleanFilter->SetInputData(newImpliedMesh);
     cleanFilter->Update();
-    retiledMesh->DeepCopy(cleanFilter->GetOutput());
+    retiledMesh->DeepCopy(newImpliedMesh);
     //cout << "after clean point num:" << retiledMesh->GetNumberOfPoints() << endl;
 
 }
