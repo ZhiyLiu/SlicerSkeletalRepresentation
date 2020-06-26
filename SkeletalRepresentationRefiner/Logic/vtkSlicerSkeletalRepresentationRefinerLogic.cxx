@@ -46,6 +46,7 @@
 #include <vtkImageData.h>
 #include <vtkSmoothPolyDataFilter.h>
 #include <vtkPCANormalEstimation.h>
+#include <vtkKochanekSpline.h>
 #include <vtkParametricSpline.h>
 #include <vtkCellLocator.h>
 #include <vtksys/SystemTools.hxx>
@@ -667,15 +668,17 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
 
     // save retiled implied boundary to files
     vtkSmartPointer<vtkPolyDataWriter> writer = vtkSmartPointer<vtkPolyDataWriter>::New();
-    writer->SetFileName(outputFilePath.c_str());
+    std::string output_implied_bdry_file_path(outputFilePath);
+    output_implied_bdry_file_path += "_implied_boundary.vtk";
+    writer->SetFileName(output_implied_bdry_file_path.c_str());
     writer->SetInputData(smoothFilter->GetOutput());
     writer->Write();
 
     // compute distance difference
 //    ComputeDistDiff(impliedBoundary, inputMesh, outputFilePath);
     // compute curvatures
-//    ComputeCurvatureDiff(impliedBoundary, outputFilePath, outputTargetPath);
- //   ShowHeatMap(inputMesh, impliedBoundary);
+    ComputeCurvatureDiff(impliedBoundary, outputFilePath, outputTargetPath);
+//    ShowHeatMap(inputMesh, impliedBoundary);
 }
 
 void vtkSlicerSkeletalRepresentationRefinerLogic::ShowHeatMap(vtkPolyData* inputMesh, vtkPolyData* impliedBoundary)
@@ -707,6 +710,11 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
     double minDist = distArray->GetRange()[0];
     double maxDist = distArray->GetRange()[1];
     cout << maxDist << " " << minDist << endl;
+    for (int id = 0; id < distArray->GetNumberOfTuples(); id++) {
+        double oldValue = distArray->GetTuple1(id);
+        distArray->SetTuple1(id, oldValue * 0.05);
+    }
+    distArray->Modified();
     // model node
     vtkSmartPointer<vtkMRMLModelNode> modelNode;
     modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
@@ -719,7 +727,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
     vtkSmartPointer<vtkColorTransferFunction> colorTransferFunction =
         vtkSmartPointer<vtkColorTransferFunction>::New();
     colorTransferFunction->AddRGBPoint(0.0, 0, 0, 1);
-    colorTransferFunction->AddRGBPoint(1.76, 1, 0, 0);
+    colorTransferFunction->AddRGBPoint(1.76*0.05, 1, 0, 0);
     vtkSmartPointer<vtkMRMLNode> newNode = scene->AddNewNodeByClass("vtkMRMLProceduralColorNode", "DistHeatMap");
     vtkSmartPointer<vtkMRMLProceduralColorNode> colorNode = vtkMRMLProceduralColorNode::SafeDownCast(newNode);
     colorNode->SetType(13);
@@ -805,8 +813,8 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
 
     // difference of curviness from target boundary
     vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
-    reader->SetFileName(mTargetMeshFilePath.c_str());
-//    reader->SetFileName("/playpen/ra_job/EvaluateFit/one_eg_curvedness/init/init_implied_boundary.vtk");
+//    reader->SetFileName(mTargetMeshFilePath.c_str());
+    reader->SetFileName("/playpen/ra_job/EvaluateFit/one_eg_curvedness/init/init_implied_boundary.vtk");
     reader->Update();
     vtkSmartPointer<vtkPolyData> targetMesh = reader->GetOutput();
     vtkSmartPointer<vtkPolyData> heatmapCurvedness = vtkSmartPointer<vtkPolyData>::New();
@@ -865,7 +873,6 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
     fs_target.close();
     fs_target_max.close();
     fs_target_min.close();
-
     std::ofstream fs_curv, fs_shape_diff;
     fs_curv.open (outputFilePath + "_diff_curviness.txt", std::fstream::out | std::fstream::app);
     fs_shape_diff.open (outputFilePath + "_diff_shape.txt", std::fstream::out | std::fstream::app);
@@ -1906,8 +1913,17 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ConnectImpliedCrest(int interp
         radialCurve->InsertNextPoint(ptUp);
         radialCurve->InsertNextPoint(ptCrest);
         radialCurve->InsertNextPoint(ptDown);
+//        vtkSmartPointer<vtkKochanekSpline> xSpline =
+//           vtkSmartPointer<vtkKochanekSpline>::New();
+//         vtkSmartPointer<vtkKochanekSpline> ySpline =
+//           vtkSmartPointer<vtkKochanekSpline>::New();
+//         vtkSmartPointer<vtkKochanekSpline> zSpline =
+//           vtkSmartPointer<vtkKochanekSpline>::New();
         vtkSmartPointer<vtkParametricSpline> splineRadial =
                 vtkSmartPointer<vtkParametricSpline>::New();
+//        splineRadial->SetXSpline(xSpline);
+//        splineRadial->SetYSpline(ySpline);
+//        splineRadial->SetZSpline(zSpline);
         splineRadial->SetPoints(radialCurve);
         vtkSmartPointer<vtkParametricFunctionSource> functionSourceRadial =
                 vtkSmartPointer<vtkParametricFunctionSource>::New();
@@ -1915,7 +1931,6 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ConnectImpliedCrest(int interp
         functionSourceRadial->Update();
         // share the base point among all other interpolated spokes
         crestInterpSpokes[i]->GetSkeletalPoint(ptSkeletal);
-
         // interpolate along the spline
         for(int j = 1; j < shares; ++j)
         {
