@@ -129,6 +129,7 @@ private:
   double CalculateSpokeLength(PointType tail, PointType tip);
   void GetNeighborCells(vtkPolyData* mesh, int ptId, int newId, vtkCellArray* output, vtkPoints* morePts);
   void CompletePolyData(vtkPolyData *poly, vtkPolyData *output, bool isCrest = false);
+  void ComputeBoundaryPoint(double* skeletalPoint, double* boundaryPoint);
 
 private:
 
