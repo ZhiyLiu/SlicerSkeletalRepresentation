@@ -119,7 +119,11 @@ void qSlicerSkeletalRepresentationInitializerModuleWidget::rotateSkeleton()
     int numRows = static_cast<int>(d->sl_num_rows->value());
     d->logic()->SetRows(numRows);
     d->logic()->SetCols(numCols);
-    d->logic()->RotateSkeleton(d->cb_flip_green->isChecked(),d->cb_flip_red->isChecked(), d->cb_flip_blue->isChecked());
+    d->logic()->RotateSkeleton(static_cast<int>(d->sl_num_rows->value()),
+                           static_cast<int>(d->sl_num_cols->value()),
+                d->cb_flip_green->isChecked(),
+                d->cb_flip_red->isChecked(),
+                d->cb_flip_blue->isChecked());
 }
 
 void qSlicerSkeletalRepresentationInitializerModuleWidget::flow()

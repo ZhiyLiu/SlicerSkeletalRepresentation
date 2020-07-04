@@ -17,6 +17,7 @@
 
 #include "vtkSrep.h"
 #include <math.h>
+#include <stdlib.h>
 #include "vtkSpoke.h"
 
 // STD includes
@@ -31,7 +32,10 @@ vtkSrep::vtkSrep(int r, int c,  std::vector<double> &radii, std::vector<double> 
 {
     nRows = r;
     nCols = c;
-    for(int i = 0; i < r * c; ++i)
+    int nCrestPoints = r * 2 + (c-2) * 2;
+    int numSteps = static_cast<int>(floor(r/2)); // steps from crest point to the skeletal point
+
+    for(int i = 0; i < nCrestPoints * (numSteps + 1); ++i)
     {
         int idTuple = i * 3;
         vtkSpoke *s = new vtkSpoke(radii[i], skeletalPoints[idTuple], skeletalPoints[idTuple + 1], skeletalPoints[idTuple + 2],
@@ -59,7 +63,16 @@ vtkSpoke *vtkSrep::GetSpoke(int r, int c) const
     {
         return nullptr;
     }
-    int id = r * nCols + c;
+    int num_row = nRows * 2 + (nCols-2) * 2;
+    int num_col = 1+static_cast<int>(floor(nRows/2)); // steps from crest point to the skeletal point
+
+
+    int id = 0;
+    if(r > num_row - 1)
+        id = c; // last row connect with the first row, because it's a circle
+    else
+        id = r * num_col + c;
+
     return spokes[id];
 }
 
@@ -88,12 +101,13 @@ std::vector<double> &vtkSrep::GetAllSkeletalPoints()
     return skeletalPts;
 }
 
-void vtkSrep::Refine(const double *coeff)
+void vtkSrep::Refine(const double *coeff, std::vector<int>& changedSpokeIds)
 {
     if(spokes.empty())
     {
         return;
     }
+    double epsilon = 1e-13;
     for(size_t i = 0; i < spokes.size(); ++i)
     {
         size_t idx = i * 4;
@@ -106,8 +120,20 @@ void vtkSrep::Refine(const double *coeff)
         oldR = thisSpoke->GetRadius();
         newR = exp(coeff[idx+3]) * oldR;
 
+        double oldU[3];
+        thisSpoke->GetDirection(oldU);
+
+        if(abs(newR - oldR) < epsilon &&
+                abs(newU[0] - oldU[0]) < epsilon  &&
+                abs(newU[1] - oldU[1]) < epsilon  &&
+                abs(newU[2] - oldU[2]) < epsilon) {
+
+            //no changes for this spoke
+            continue;
+        }
         thisSpoke->SetDirection(newU);
         thisSpoke->SetRadius(newR);
+        changedSpokeIds.push_back(i);
     }
 }
 

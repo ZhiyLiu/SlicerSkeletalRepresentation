@@ -53,7 +53,7 @@ public:
     // Update spoke lengths and dirs
     // The input array is from NEWUOA, formed in order of (ux, uy, uz, x_r)
     // where x_r is the logarithm of the ratio
-    void Refine(const double *coeff);
+    void Refine(const double *coeff, std::vector<int>& changedSpokeIds);
 
     // Add spokes. It's ok that spokes share skeletal points with existing spokes
     void AddSpokes(std::vector<double> &radii, std::vector<double> &dirs, std::vector<double> &skeletalPoints);

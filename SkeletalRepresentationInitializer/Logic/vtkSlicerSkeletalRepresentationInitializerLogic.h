@@ -101,8 +101,8 @@ public:
   void DisplayResultSrep(bool flip = false);
 
   // reorder skeletal points
-  void RotateSkeleton(bool rotateX, bool rotateY, bool rotateZ);
-  void ReorderSpokes(vtkPolyData* input, vtkPoints* outputPts, vtkCellArray* outputPolys);
+  void RotateSkeleton(int rows, int cols, bool rotateX, bool rotateY, bool rotateZ);
+//  void ReorderSpokes(vtkPolyData* input, vtkPoints* outputPts, vtkCellArray* outputPolys);
 protected:
   vtkSlicerSkeletalRepresentationInitializerLogic();
   virtual ~vtkSlicerSkeletalRepresentationInitializerLogic();

@@ -758,9 +758,9 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     MatrixXd reformed_skeletal_points(nCrestPoints*(numSteps+1), 3);
     MatrixXd reformed_up_points(nCrestPoints*(numSteps+1), 3);
     MatrixXd reformed_down_points(nCrestPoints*(numSteps+1), 3);
-    MatrixXd resampled_points(2 * nRows * (numSteps), 3);
-    MatrixXd resampled_points_up(2 * nRows * (numSteps), 3);
-    MatrixXd resampled_points_down(2 * nRows * (numSteps), 3);
+//    MatrixXd resampled_points(2 * nRows * (numSteps), 3);
+//    MatrixXd resampled_points_up(2 * nRows * (numSteps), 3);
+//    MatrixXd resampled_points_down(2 * nRows * (numSteps), 3);
     MatrixXd bdry_points_up(nRows*nCols, 3);
     MatrixXd bdry_points_down(nRows*nCols, 3);
     MatrixXd bdry_points_crest(nCrestPoints, 3);
@@ -805,44 +805,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         }
 
     }
-    id_resampled = 0;
-    // resampled interior points around the crest
-    for(int i = 0; i < 2*nRows; ++i)
-    {
-        for(int j = 0; j < numSteps; ++j) {
-            double mx = resampled_crest_x(i,j);
-            double my = resampled_crest_y(i,j);
-            double sB = my * mrx_o;
-            double cB = mx * mry_o;
-            double l = sqrt(sB*sB + cB*cB);
-            double sB_n, cB_n; // sin(theta), cos(theta)
-            if(l < EPS)
-            {
-                sB_n = sB;
-                cB_n = cB;
-            }
-            else
-            {
-                sB_n = sB / l;
-                cB_n = cB / l;
-            }
-            double cA = l / (mrx_o * mry_o); // cos(phi)
-            double sA = sqrt(1 - cA*cA); // sin(phi)
-            double sx = rx * cA * cB_n - mx;
-            double sy = ry * cA * sB_n - my;
-            double sz = rz * sA;
 
-            double bx = (sx + mx);
-            double by = (sy + my);
-            double bz = (sz);
-
-            resampled_points.row(id_resampled) << mx, my, 0.0;
-            resampled_points_up.row(id_resampled) << bx, by, bz;
-            resampled_points_down.row(id_resampled) << bx, by, -bz;
-            id_resampled++;
-        }
-
-    }
     for(int i = 0; i < nRows; ++i)
     {
         for(int j = 0; j < nCols; ++j)
@@ -942,44 +905,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     MatrixXd trans_reformed_down = reformed_down_points * rotation.transpose();
     MatrixXd transformed_reformed_down = trans_reformed_down +
             center.replicate(trans_reformed_down.rows(), 1);
-
-    // resampled points
-    MatrixXd trans_resample_skeleton = resampled_points * rotation.transpose();
-    MatrixXd transformed_skeletal_points_resample = trans_resample_skeleton +
-            center.replicate(trans_resample_skeleton.rows(), 1);
-    MatrixXd trans_resample_up = resampled_points_up * rotation.transpose();
-    MatrixXd transformed_resampled_up = trans_resample_up +
-            center.replicate(trans_resample_up.rows(), 1);
-    MatrixXd trans_resample_down = resampled_points_down * rotation.transpose();
-    MatrixXd transformed_resampled_down = trans_resample_down +
-            center.replicate(resampled_points_down.rows(), 1);
-
-    // all skeletal points
-    MatrixXd trans_srep = (rotation * transpose_srep).transpose();
-    MatrixXd transformed_skeletal_points = trans_srep+
-            center.replicate(trans_srep.rows(), 1);
-
-    // up spoke head point on the bdry
-    MatrixXd transpose_up_pdm = bdry_points_up.transpose();
-    MatrixXd trans_up_pdm = (rotation * transpose_up_pdm).transpose();
-    MatrixXd transformed_up_pdm =  trans_up_pdm +
-            center.replicate(trans_up_pdm.rows(), 1);
-
-    // down spoke head point on the bdry
-    MatrixXd transpose_down_pdm = bdry_points_down.transpose();
-    MatrixXd trans_down_pdm = (rotation * transpose_down_pdm).transpose();
-    MatrixXd transformed_down_pdm = trans_down_pdm +
-            center.replicate(trans_down_pdm.rows(), 1);
-
-    // crest head point on the bdry
-    MatrixXd transpose_crest_pdm = bdry_points_crest.transpose();
-    MatrixXd trans_crest_pdm = (rotation * transpose_crest_pdm).transpose();
-    MatrixXd transformed_crest_pdm = trans_crest_pdm + center.replicate(trans_crest_pdm.rows(), 1);
-
-    // crest base point on the skeletal sheet
-    MatrixXd transpose_crest_base = skeletal_points_crest.transpose();
-    MatrixXd trans_crest_base = (rotation * transpose_crest_base).transpose();
-    MatrixXd transformed_crest_base = trans_crest_base + center.replicate(trans_crest_base.rows(), 1);
 
     // 5. transfer points to polydata
     // srep_poly is supposed to form a mesh grid connecting skeletal points
@@ -1118,6 +1043,8 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     downSpokeWriter->SetInputData(downSpokes_poly);
     downSpokeWriter->Update();
 
+//    mRows = nCrestPoints;
+//    mCols = numSteps + 1;
     // deal with skeletal mesh
     for(int i = 0; i < nCrestPoints * (numSteps+1); ++i)
     {
@@ -1141,9 +1068,9 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             // connect the last radial line and the 1st line outward
             vtkSmartPointer<vtkQuad> quad = vtkSmartPointer<vtkQuad>::New();
             quad->GetPointIds()->SetId(0, current_id);
-            quad->GetPointIds()->SetId(1, current_id + 1); // an outward point on the same radial line
+            quad->GetPointIds()->SetId(1, current_col);     // the point on the first radial line but on the same circle
             quad->GetPointIds()->SetId(2, current_col + 1); // the outward point on the first radial line
-            quad->GetPointIds()->SetId(3, current_col);
+            quad->GetPointIds()->SetId(3, current_id + 1);  // an outward point on the same radial line
             skeletal_mesh->InsertNextCell(quad);
         }
     }
@@ -1157,6 +1084,16 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     meshWriter->SetInputData(srep_poly);
     meshWriter->Update();
     // deal with crest spokes
+    // crest head point on the bdry
+    MatrixXd transpose_crest_pdm = bdry_points_crest.transpose();
+    MatrixXd trans_crest_pdm = (rotation * transpose_crest_pdm).transpose();
+    MatrixXd transformed_crest_pdm = trans_crest_pdm + center.replicate(trans_crest_pdm.rows(), 1);
+
+    // crest base point on the skeletal sheet
+    MatrixXd transpose_crest_base = skeletal_points_crest.transpose();
+    MatrixXd trans_crest_base = (rotation * transpose_crest_base).transpose();
+    MatrixXd transformed_crest_base = trans_crest_base + center.replicate(trans_crest_base.rows(), 1);
+
     for(int i = 0; i < nCrestPoints; ++i)
     {
         // tail point
@@ -1795,6 +1732,9 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::DisplayResultSrep(bool fli
     CompletePolyData(upSpoke_poly, vtpUpSpoke);
     CompletePolyData(downSpoke_poly, vtpDownSpoke);
     CompletePolyData(crestSpoke_poly, vtpCrestSpoke, true);
+    vtpUpSpoke->SetPolys(meshPoly->GetPolys());
+    vtpDownSpoke->SetPolys(meshPoly->GetPolys());
+
     // save to files
     std::string outputUpFileName = mOutputPath + "/up.vtp";
     std::string outputDownFileName = mOutputPath + "/down.vtp";
@@ -1840,7 +1780,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::DisplayResultSrep(bool fli
     out_file.close();
 }
 
-void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton(bool rotateX, bool rotateY, bool rotateZ)
+void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton(int rows, int cols, bool rotateX, bool rotateY, bool rotateZ)
 {
     const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
     const std::string newEllSurfaceFile = tempFolder + "/forward/" + std::to_string(forwardCount) + ".vtk";
@@ -1853,100 +1793,100 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton(bool rotate
     vtkSmartPointer<vtkPolyData> mesh =
         vtkSmartPointer<vtkPolyData>::New();
     mesh = reader->GetOutput();
-    GenerateSrepForEllipsoid(mesh, mRows, mCols, forwardCount, rotateX, rotateY, rotateZ);
+    GenerateSrepForEllipsoid(mesh, rows, cols, forwardCount, rotateX, rotateY, rotateZ);
 }
 
-void vtkSlicerSkeletalRepresentationInitializerLogic::ReorderSpokes(vtkPolyData *input, vtkPoints* outputPts, vtkCellArray* outputPolys)
-{
-    if(input->GetNumberOfPoints() == 0) return;
-    outputPts->SetDataTypeToDouble();
+//void vtkSlicerSkeletalRepresentationInitializerLogic::ReorderSpokes(vtkPolyData *input, vtkPoints* outputPts, vtkCellArray* outputPolys)
+//{
+//    if(input->GetNumberOfPoints() == 0) return;
+//    outputPts->SetDataTypeToDouble();
 
-    vtkSmartPointer<vtkPolyData> testPoly = vtkSmartPointer<vtkPolyData>::New();
-    vtkSmartPointer<vtkPoints> testPts = vtkSmartPointer<vtkPoints>::New();
-    vtkSmartPointer<vtkCellArray> testPolys = vtkSmartPointer<vtkCellArray>::New();
-    vtkSmartPointer<vtkPolyData> test2Poly = vtkSmartPointer<vtkPolyData>::New();
-    vtkSmartPointer<vtkPoints> test2Pts = vtkSmartPointer<vtkPoints>::New();
-    vtkSmartPointer<vtkCellArray> test2Polys = vtkSmartPointer<vtkCellArray>::New();
+//    vtkSmartPointer<vtkPolyData> testPoly = vtkSmartPointer<vtkPolyData>::New();
+//    vtkSmartPointer<vtkPoints> testPts = vtkSmartPointer<vtkPoints>::New();
+//    vtkSmartPointer<vtkCellArray> testPolys = vtkSmartPointer<vtkCellArray>::New();
+//    vtkSmartPointer<vtkPolyData> test2Poly = vtkSmartPointer<vtkPolyData>::New();
+//    vtkSmartPointer<vtkPoints> test2Pts = vtkSmartPointer<vtkPoints>::New();
+//    vtkSmartPointer<vtkCellArray> test2Polys = vtkSmartPointer<vtkCellArray>::New();
 
 
-    for(int i = 0; i < mRows; ++i) {
-        double mx[mCols];
-        double my[mCols];
-        double mz[mCols];
-        double bx[mCols];
-        double by[mCols];
-        double bz[mCols];
-        for(int j = 0; j < mCols; ++j) {
-            double skeletalPt[3];
-            double bdryPt[3];
-            int idx = i * mCols + j;
-            input->GetPoint(idx*2, skeletalPt);
-            input->GetPoint(idx*2+1, bdryPt);
-            mx[j] = skeletalPt[0];
-            my[j] = skeletalPt[1];
-            mz[j] = skeletalPt[2];
-            bx[j] = bdryPt[0];
-            by[j] = bdryPt[1];
-            bz[j] = bdryPt[2];
-        }
+//    for(int i = 0; i < mRows; ++i) {
+//        double mx[mCols];
+//        double my[mCols];
+//        double mz[mCols];
+//        double bx[mCols];
+//        double by[mCols];
+//        double bz[mCols];
+//        for(int j = 0; j < mCols; ++j) {
+//            double skeletalPt[3];
+//            double bdryPt[3];
+//            int idx = i * mCols + j;
+//            input->GetPoint(idx*2, skeletalPt);
+//            input->GetPoint(idx*2+1, bdryPt);
+//            mx[j] = skeletalPt[0];
+//            my[j] = skeletalPt[1];
+//            mz[j] = skeletalPt[2];
+//            bx[j] = bdryPt[0];
+//            by[j] = bdryPt[1];
+//            bz[j] = bdryPt[2];
+//        }
 
-        for(int j = mCols - 1; j >=0; --j) {
-            double newSkeletalPt[3], newBdryPt[3];
-            newSkeletalPt[0] = mx[j];
-            newSkeletalPt[1] = my[j];
-            newSkeletalPt[2] = mz[j];
-            vtkIdType id0 = outputPts->InsertNextPoint(newSkeletalPt);
+//        for(int j = mCols - 1; j >=0; --j) {
+//            double newSkeletalPt[3], newBdryPt[3];
+//            newSkeletalPt[0] = mx[j];
+//            newSkeletalPt[1] = my[j];
+//            newSkeletalPt[2] = mz[j];
+//            vtkIdType id0 = outputPts->InsertNextPoint(newSkeletalPt);
 
-            newBdryPt[0] = bx[j];
-            newBdryPt[1] = by[j];
-            newBdryPt[2] = bz[j];
-            vtkIdType id1 = outputPts->InsertNextPoint(newBdryPt);
+//            newBdryPt[0] = bx[j];
+//            newBdryPt[1] = by[j];
+//            newBdryPt[2] = bz[j];
+//            vtkIdType id1 = outputPts->InsertNextPoint(newBdryPt);
 
-            vtkSmartPointer<vtkLine> arrow = vtkSmartPointer<vtkLine>::New();
-            arrow->GetPointIds()->SetId(0, id0);
-            arrow->GetPointIds()->SetId(1, id1);
-            outputPolys->InsertNextCell(arrow);
+//            vtkSmartPointer<vtkLine> arrow = vtkSmartPointer<vtkLine>::New();
+//            arrow->GetPointIds()->SetId(0, id0);
+//            arrow->GetPointIds()->SetId(1, id1);
+//            outputPolys->InsertNextCell(arrow);
 
-            if(i == 0 || i == mRows - 1) {
-                double skeletalPt[3];
-                double bdryPt[3];
-                int idx = i * mCols + j;
-                input->GetPoint(idx*2, skeletalPt);
-                input->GetPoint(idx*2+1, bdryPt);
-                vtkIdType id0Test = testPts->InsertNextPoint(skeletalPt);
-                vtkIdType id1Test = testPts->InsertNextPoint(bdryPt);
-                vtkSmartPointer<vtkLine> arrowTest = vtkSmartPointer<vtkLine>::New();
-                arrowTest->GetPointIds()->SetId(0, id0Test);
-                arrowTest->GetPointIds()->SetId(1, id1Test);
-                testPolys->InsertNextCell(arrowTest);
+//            if(i == 0 || i == mRows - 1) {
+//                double skeletalPt[3];
+//                double bdryPt[3];
+//                int idx = i * mCols + j;
+//                input->GetPoint(idx*2, skeletalPt);
+//                input->GetPoint(idx*2+1, bdryPt);
+//                vtkIdType id0Test = testPts->InsertNextPoint(skeletalPt);
+//                vtkIdType id1Test = testPts->InsertNextPoint(bdryPt);
+//                vtkSmartPointer<vtkLine> arrowTest = vtkSmartPointer<vtkLine>::New();
+//                arrowTest->GetPointIds()->SetId(0, id0Test);
+//                arrowTest->GetPointIds()->SetId(1, id1Test);
+//                testPolys->InsertNextCell(arrowTest);
 
-                vtkIdType id0Test2 = test2Pts->InsertNextPoint(newSkeletalPt);
-                vtkIdType id1Test2 = test2Pts->InsertNextPoint(newBdryPt);
+//                vtkIdType id0Test2 = test2Pts->InsertNextPoint(newSkeletalPt);
+//                vtkIdType id1Test2 = test2Pts->InsertNextPoint(newBdryPt);
 
-                vtkSmartPointer<vtkLine> arrowTest2 = vtkSmartPointer<vtkLine>::New();
-                arrowTest2->GetPointIds()->SetId(0, id0Test2);
-                arrowTest2->GetPointIds()->SetId(1, id1Test2);
-                test2Polys->InsertNextCell(arrowTest2);
+//                vtkSmartPointer<vtkLine> arrowTest2 = vtkSmartPointer<vtkLine>::New();
+//                arrowTest2->GetPointIds()->SetId(0, id0Test2);
+//                arrowTest2->GetPointIds()->SetId(1, id1Test2);
+//                test2Polys->InsertNextCell(arrowTest2);
 
-            }
-        }
-    }
-    testPts->Modified();
-    testPoly->Modified();
-    test2Pts->Modified();
-    test2Polys->Modified();
-    testPoly->SetPoints(testPts);
-    testPoly->SetPolys(testPolys);
-    test2Poly->SetPoints(test2Pts);
-    test2Poly->SetPolys(test2Polys);
+//            }
+//        }
+//    }
+//    testPts->Modified();
+//    testPoly->Modified();
+//    test2Pts->Modified();
+//    test2Polys->Modified();
+//    testPoly->SetPoints(testPts);
+//    testPoly->SetPolys(testPolys);
+//    test2Poly->SetPoints(test2Pts);
+//    test2Poly->SetPolys(test2Polys);
 
-    outputPts->Modified();
-    outputPolys->Modified();
+//    outputPts->Modified();
+//    outputPolys->Modified();
 
-//    AddModelNodeToScene(testPoly, "up spokes for initial object", true, 0, 1, 1);
-//    AddModelNodeToScene(test2Poly, "reordered up spokes for initial object", true, 1, 0, 1);
+////    AddModelNodeToScene(testPoly, "up spokes for initial object", true, 0, 1, 1);
+////    AddModelNodeToScene(test2Poly, "reordered up spokes for initial object", true, 1, 0, 1);
 
-}
+//}
 
 void vtkSlicerSkeletalRepresentationInitializerLogic::TransformNOutput(itkThinPlateSplineExtended::Pointer tps, vtkPolyData* spokes, const std::string& outputFileName)
 {
@@ -2123,7 +2063,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::CompletePolyData(vtkPolyDa
     output->GetPointData()->AddArray(spokeLengths);
     output->GetPointData()->SetActiveScalars("spokeLength");
 
-    // connection of skeletal points
+   // connection of skeletal points
     if(isCrest)
     {
         vtkSmartPointer<vtkCellArray> curve = vtkSmartPointer<vtkCellArray>::New();
@@ -2171,27 +2111,30 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::CompletePolyData(vtkPolyDa
         curve->InsertNextCell(lineEnd);
         output->SetLines(curve);
     }
-    else {
-        vtkSmartPointer<vtkCellArray> quads = vtkSmartPointer<vtkCellArray>::New();
+//    else {
+//        int nCrestPoints = mRows*2 + (mCols-2)*2;
+//        int numSteps = static_cast<int>(floor(mRows/2)); // steps from crest point to the skeletal point
 
-        for(int i = 0; i < mRows - 1; ++i)
-        {
-            for(int j = 0; j < mCols-1; ++j)
-            {
-                int id0 = i * mCols + j;
-                int id1 = id0 + 1;
-                int id2 = id0 + mCols;
-                int id3 = id2 + 1;
-                vtkSmartPointer<vtkQuad> quad = vtkSmartPointer<vtkQuad>::New();
-                quad->GetPointIds()->SetId(0, id0);
-                quad->GetPointIds()->SetId(1, id2);
-                quad->GetPointIds()->SetId(2, id3);
-                quad->GetPointIds()->SetId(3, id1);
-                quads->InsertNextCell(quad);
-            }
-        }
-        output->SetPolys(quads);
-    }
+//        vtkSmartPointer<vtkCellArray> quads = vtkSmartPointer<vtkCellArray>::New();
+
+//        for(int i = 0; i < nCrestPoints - 1; ++i)
+//        {
+//            for(int j = 0; j < numSteps-1; ++j)
+//            {
+//                int id0 = i * numSteps + j;
+//                int id1 = id0 + numSteps;
+//                int id2 = id1 + 1;
+//                int id3 = id0 + 1;
+//                vtkSmartPointer<vtkQuad> quad = vtkSmartPointer<vtkQuad>::New();
+//                quad->GetPointIds()->SetId(0, id0);
+//                quad->GetPointIds()->SetId(1, id2);
+//                quad->GetPointIds()->SetId(2, id3);
+//                quad->GetPointIds()->SetId(3, id1);
+//                quads->InsertNextCell(quad);
+//            }
+//        }
+//        output->SetPolys(quads);
+//    }
 
 
 }
