@@ -680,7 +680,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     int r = 0, c = 0;
     for(int i = 0; i < nCrestPoints; ++i)
     {
-        double theta = vtkMath::Pi() - deltaTheta * floor(nRows/2) - deltaTheta*i;
+        double theta = vtkMath::Pi() /*- deltaTheta * floor(nRows/2)*/ - deltaTheta*i;
         double x = mra * cos(theta);
         double y = mrb * sin(theta);
 
@@ -802,10 +802,30 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             reformed_up_points.row(id_resampled) << bx, by, bz;
             reformed_down_points.row(id_resampled) << bx, by, -bz;
             id_resampled++;
+            if(j == numSteps) {
+                // fold curve
+                double cx = rx * cB_n - mx;
+                double cy = ry * sB_n - my;
+                double cz = 0;
+                Vector3d v, v2, v3;
+                v << cx, cy, cz;
+                v2 << sx, sy, 0.0;
+                double v_n = v.norm();
+                v2.normalize(); // v2 is the unit vector pointing out to norm dir
+                v3 = v_n * v2;
+                double bx = (v3(0) + mx);
+                double by = (v3(1) + my);
+                double bz = v3(2);
+                bdry_points_crest.row(id_crest) << bx, by, bz;
+                skeletal_points_crest.row(id_crest) << mx, my, 0.0;
+                shift_dir.row(id_crest) << v2(0), v2(1), v2(2);
+                id_crest++;
+            }
         }
 
     }
 
+    // skeletal points arranged in grid form
     for(int i = 0; i < nRows; ++i)
     {
         for(int j = 0; j < nCols; ++j)
@@ -840,26 +860,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             bdry_points_up.row(id_pt) << bx, by, bz;
             bdry_points_down.row(id_pt) << bx, by, -bz;
             id_pt++;
-            // fold curve
-            if(i == 0 || i == nRows - 1 || j == 0 || j == nCols - 1)
-            {
-                double cx = rx * cB_n - mx;
-                double cy = ry * sB_n - my;
-                double cz = 0;
-                Vector3d v, v2, v3;
-                v << cx, cy, cz;
-                v2 << sx, sy, 0.0;
-                double v_n = v.norm();
-                v2.normalize(); // v2 is the unit vector pointing out to norm dir
-                v3 = v_n * v2;
-                double bx = (v3(0) + mx);
-                double by = (v3(1) + my);
-                double bz = v3(2);
-                bdry_points_crest.row(id_crest) << bx, by, bz;
-                skeletal_points_crest.row(id_crest) << mx, my, 0.0;
-                shift_dir.row(id_crest) << v2(0), v2(1), v2(2);
-                id_crest++;
-            }
+
         }
     }
 
@@ -1181,57 +1182,16 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             cz_t += shift_z;
         }
         int id0 = static_cast<int>(foldCurve_pts->InsertNextPoint(cx_t, cy_t, cz_t));
-
-        if(id0 > 0 && i < nCols)
-        {
-            // first row
-            vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
-            fold_seg->GetPointIds()->SetId(0, id0-1);
-            fold_seg->GetPointIds()->SetId(1, id0);
-            fold_curve->InsertNextCell(fold_seg);
+        int id1 = id0 + 1;
+        if(i == nCrestPoints - 1) {
+            id1 = 0;
         }
 
-        if(i > nCols && i < nCols + 2*(nRows-2) + 1 && (i-nCols) % 2 == 1)
-        {
-            // right side of crest
-            vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
-            fold_seg->GetPointIds()->SetId(0, id0-2);
-            fold_seg->GetPointIds()->SetId(1, id0);
-            fold_curve->InsertNextCell(fold_seg);
-        }
-        if(i > nCols && i < nCols + 2*(nRows-2) + 1 && (i-nCols) % 2 == 0)
-        {
-            // part of left side
-            vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
-            fold_seg->GetPointIds()->SetId(0, id0-2);
-            fold_seg->GetPointIds()->SetId(1, id0);
-            fold_curve->InsertNextCell(fold_seg);
-        }
+        vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
+        fold_seg->GetPointIds()->SetId(0, id0);
+        fold_seg->GetPointIds()->SetId(1, id1);
+        fold_curve->InsertNextCell(fold_seg);
 
-        if(i == nCols)
-        {
-            // remaining part of left side
-            vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
-            fold_seg->GetPointIds()->SetId(0, 0);
-            fold_seg->GetPointIds()->SetId(1, id0);
-            fold_curve->InsertNextCell(fold_seg);
-        }
-        if(i > nCols + 2*(nRows-2))
-        {
-            //bottom side
-            vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
-            fold_seg->GetPointIds()->SetId(0, id0-1);
-            fold_seg->GetPointIds()->SetId(1, id0);
-            fold_curve->InsertNextCell(fold_seg);
-        }
-        if(i == nCrestPoints - 1)
-        {
-            // bottome right
-            vtkSmartPointer<vtkLine> fold_seg = vtkSmartPointer<vtkLine>::New();
-            fold_seg->GetPointIds()->SetId(0, id0-nCols);
-            fold_seg->GetPointIds()->SetId(1, id0);
-            fold_curve->InsertNextCell(fold_seg);
-        }
     }
     foldCurve_poly->SetPoints(foldCurve_pts);
     foldCurve_poly->SetLines(fold_curve);
@@ -2069,35 +2029,39 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::CompletePolyData(vtkPolyDa
         vtkSmartPointer<vtkCellArray> curve = vtkSmartPointer<vtkCellArray>::New();
         for(int i = 0; i < skeletalPts->GetNumberOfPoints() - 1; ++i)
         {
-            if(i < mCols-1)
-            {
-                // Horizontal connection for top row
-                vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
-                line->GetPointIds()->SetId(0, i);
-                line->GetPointIds()->SetId(1, i+1);
-                curve->InsertNextCell(line);
-            }
-            else if(i > mCols + 2 * (mRows-2)-1){
-                // Backward horizontal connection for bot row
-                vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
-                line->GetPointIds()->SetId(0, i+1);
-                line->GetPointIds()->SetId(1, i);
-                curve->InsertNextCell(line);
-            }
-            else if((i - mCols) % 2 == 0){
-                // vertical connection for left side points
-                vtkSmartPointer<vtkLine> line1 = vtkSmartPointer<vtkLine>::New();
-                line1->GetPointIds()->SetId(0, i+2);
-                line1->GetPointIds()->SetId(1, i);
-                curve->InsertNextCell(line1);
-            }
-            else if(i > mCols-1 && (i - mCols - 1) % 2 == 0){
-                // vertical connection for right side points
-                vtkSmartPointer<vtkLine> line2 = vtkSmartPointer<vtkLine>::New();
-                line2->GetPointIds()->SetId(0, i);
-                line2->GetPointIds()->SetId(1, i - 2);
-                curve->InsertNextCell(line2);
-            }
+            vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
+            line->GetPointIds()->SetId(0, i);
+            line->GetPointIds()->SetId(1, i+1);
+            curve->InsertNextCell(line);
+//            if(i < mCols-1)
+//            {
+//                // Horizontal connection for top row
+//                vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
+//                line->GetPointIds()->SetId(0, i);
+//                line->GetPointIds()->SetId(1, i+1);
+//                curve->InsertNextCell(line);
+//            }
+//            else if(i > mCols + 2 * (mRows-2)-1){
+//                // Backward horizontal connection for bot row
+//                vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
+//                line->GetPointIds()->SetId(0, i+1);
+//                line->GetPointIds()->SetId(1, i);
+//                curve->InsertNextCell(line);
+//            }
+//            else if((i - mCols) % 2 == 0){
+//                // vertical connection for left side points
+//                vtkSmartPointer<vtkLine> line1 = vtkSmartPointer<vtkLine>::New();
+//                line1->GetPointIds()->SetId(0, i+2);
+//                line1->GetPointIds()->SetId(1, i);
+//                curve->InsertNextCell(line1);
+//            }
+//            else if(i > mCols-1 && (i - mCols - 1) % 2 == 0){
+//                // vertical connection for right side points
+//                vtkSmartPointer<vtkLine> line2 = vtkSmartPointer<vtkLine>::New();
+//                line2->GetPointIds()->SetId(0, i);
+//                line2->GetPointIds()->SetId(1, i - 2);
+//                curve->InsertNextCell(line2);
+//            }
 
         }
         vtkSmartPointer<vtkLine> lineEnd = vtkSmartPointer<vtkLine>::New();

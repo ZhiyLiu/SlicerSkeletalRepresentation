@@ -192,13 +192,18 @@ protected:
 
   // Get all interpolated as well as primary spokes including top, bottom and down
   void ConnectImpliedBoundaryPts(int interpolationLevel, int nRows, int nCols, const std::string &srepFileName,
-                                 const std::string &outputFilePath, const std::string &outputTargetPath,
+                                 std::vector<vtkSpoke *> &borderSpokes,
                                  std::vector<vtkSpoke*>& interpolated, std::vector<vtkSpoke*>& primary,
                                  vtkPolyData* impliedPolyData);
 
   // Interpolate crest region and connect them with quads
   void ConnectImpliedCrest(int interpolationLevel, int nRows, int nCols,
                            const std::string &crest, std::vector<vtkSpoke*> &upSpokes,std::vector<vtkSpoke*> &downSpokes,
+                           vtkPolyData* crestPoly);
+  void ConnectImpliedCrest(int interpolationLevel,
+                           std::vector<vtkSpoke *> upInterpSpokes,
+                           std::vector<vtkSpoke *> downInterpSpokes,
+                           std::vector<vtkSpoke *> crestInterpSpokes,
                            vtkPolyData* crestPoly);
 
   // connect fold curve macro
@@ -260,6 +265,11 @@ protected:
   void ConvertPointCloud2Mesh(vtkPolyData* polyData);
 
   void RetileMesh(vtkPolyData* targetMesh, vtkPolyData* impliedMesh, vtkPolyData* retiledMesh);
+  void InterpolateCrest(int interpolationLevel,
+                        std::vector<vtkSpoke *> upInterpSpokes,
+                        std::vector<vtkSpoke *> downInterpSpokes,
+                        std::vector<vtkSpoke *> crestInterpSpokes,
+                        vtkPolyData* crestPoly);
 
 protected:
   std::vector<std::pair<double, double> > mInterpolatePositions;
