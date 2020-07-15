@@ -193,7 +193,9 @@ protected:
   // Get all interpolated as well as primary spokes including top, bottom and down
   void ConnectImpliedBoundaryPts(int interpolationLevel, int nRows, int nCols, const std::string &srepFileName,
                                  std::vector<vtkSpoke *> &borderSpokes,
-                                 std::vector<vtkSpoke*>& interpolated, std::vector<vtkSpoke*>& primary,
+                                 std::vector<vtkSpoke*>& interpolated,
+                                 std::vector<vtkSpoke *> &repeatedInterps,
+                                 std::vector<vtkSpoke*>& primary,
                                  vtkPolyData* impliedPolyData);
 
   // Interpolate crest region and connect them with quads

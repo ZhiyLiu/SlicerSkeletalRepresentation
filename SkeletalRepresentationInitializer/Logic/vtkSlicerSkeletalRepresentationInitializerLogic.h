@@ -103,6 +103,7 @@ public:
   // reorder skeletal points
   void RotateSkeleton(int rows, int cols, bool rotateX, bool rotateY, bool rotateZ);
 //  void ReorderSpokes(vtkPolyData* input, vtkPoints* outputPts, vtkCellArray* outputPolys);
+  void CLIInitialize(const std::string &vtkFilePath, const std::string &outputPath, int nRows, int nCols);
 protected:
   vtkSlicerSkeletalRepresentationInitializerLogic();
   virtual ~vtkSlicerSkeletalRepresentationInitializerLogic();

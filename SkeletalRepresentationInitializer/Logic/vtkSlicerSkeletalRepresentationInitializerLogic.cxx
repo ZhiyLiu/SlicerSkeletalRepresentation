@@ -344,7 +344,7 @@ int vtkSlicerSkeletalRepresentationInitializerLogic::FlowSurfaceMesh(const std::
     const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
     std::string forwardFolder;
     forwardFolder = tempFolder + "/forward";
-    std::cout << "forward folder" << forwardFolder << std::endl;
+    std::cout << "[FlowSurfaceMesh:] forward folder" << forwardFolder << std::endl;
     if (!vtksys::SystemTools::FileExists(forwardFolder, false))
     {
       if (!vtksys::SystemTools::MakeDirectory(forwardFolder))
@@ -608,7 +608,8 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     // create folder if not exist
     const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
     const std::string modelFolder = tempFolder + "/model";
-    std::cout << "s-reps folder" << modelFolder << std::endl;
+    std::cout << "[GenerateSrepForEllipsoid:] s-reps folder" << modelFolder << nRows << std::endl;
+
     if (!vtksys::SystemTools::FileExists(modelFolder, false))
     {
       if (!vtksys::SystemTools::MakeDirectory(modelFolder))
@@ -625,7 +626,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     using namespace Eigen;
     // the number of rows should be odd number
     double shift = 0.1; // shift fold curve off the inner spokes
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 629" << std::endl;
     // 1. derive the best fitting ellipsoid from the deformed mesh
     vtkSmartPointer<vtkPoints> points = mesh->GetPoints();
     MatrixXd point_matrix(points->GetNumberOfPoints(), 3);
@@ -635,13 +636,14 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         points->GetPoint(i, p);
         point_matrix.row(i) << p[0], p[1], p[2];
     }
+    std::cout << "[GenerateSrepForEllipsoid:] line 639" << std::endl;
     MatrixXd center = point_matrix.colwise().mean();
     MatrixXd centered_point_mat = point_matrix - center.replicate(point_matrix.rows(), 1);
     MatrixXd point_matrix_transposed = centered_point_mat.transpose();
     Matrix3d second_moment = point_matrix_transposed * centered_point_mat;
     SelfAdjointEigenSolver<Eigen::MatrixXd> es_obj(second_moment);
     VectorXd radii = es_obj.eigenvalues();
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 646" << std::endl;
     // notations consistent with wenqi's slides
     double rz = sqrt(radii(0));
     double ry = sqrt(radii(1));
@@ -668,14 +670,12 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     int numSteps = static_cast<int>(floor(nRows/2)); // steps from crest point to the skeletal point
     MatrixXd skeletal_points_x(nRows, nCols);
     MatrixXd skeletal_points_y(nRows, nCols);
-    MatrixXd resampled_crest_x(2 * nRows, numSteps);
-    MatrixXd resampled_crest_y(2 * nRows, numSteps);
 
     // Note that the middle line is a degenerated ellipse, on which there are less boundary point than outer ellipses
     MatrixXd reformed_points_x(nCrestPoints, numSteps+1);
     MatrixXd reformed_points_y(nCrestPoints, numSteps+1);
-
-    int r_resample = 0;
+    std::cout << "[GenerateSrepForEllipsoid:] line 678" << std::endl;
+//    int r_resample = 0;
     //MatrixXd skeletal_points_z(nRows, nCols);
     int r = 0, c = 0;
     for(int i = 0; i < nCrestPoints; ++i)
@@ -741,18 +741,18 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
                 }
             }
 
-            if(j >= 0 && j < numSteps) {
-                if (i == 0 || i >= 2*nCols + nRows - 3 || (i >= nCols - 1 && i < nCols + nRows - 1)) {
-                    // left col & right col
-                    resampled_crest_x(r_resample, j) = tempX_;
-                    resampled_crest_y(r_resample, j) = tempY_;
-                    if(j == numSteps - 1) r_resample++;
-                }
-            }
+//            if(j >= 0 && j < numSteps) {
+//                if (i == 0 || i >= 2*nCols + nRows - 3 || (i >= nCols - 1 && i < nCols + nRows - 1)) {
+//                    // left col & right col
+//                    resampled_crest_x(r_resample, j) = tempX_;
+//                    resampled_crest_y(r_resample, j) = tempY_;
+//                    if(j == numSteps - 1) r_resample++;
+//                }
+//            }
         }
 
     }
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 757" << std::endl;
     // 3. compute the head points of spokes
     MatrixXd skeletal_points(nRows*nCols, 3);
     MatrixXd reformed_skeletal_points(nCrestPoints*(numSteps+1), 3);
@@ -824,7 +824,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         }
 
     }
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 828" << std::endl;
     // skeletal points arranged in grid form
     for(int i = 0; i < nRows; ++i)
     {
@@ -863,7 +863,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
 
         }
     }
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 867" << std::endl;
     // 4. transform the s-rep
     MatrixXd transpose_srep = skeletal_points.transpose(); // 3xn
     Matrix3d srep_secondMoment = transpose_srep * skeletal_points; // 3x3
@@ -957,7 +957,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     upSpokeDirs->SetName("spokeDirection");
     downSpokeDirs->SetName("spokeDirection");
     crestSpokeDirs->SetName("spokeDirection");
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 961" << std::endl;
     // use reorganized spokes (last row is the outermost ellipse
     for(int i = 0; i < nCrestPoints*(numSteps+1); ++i) {
         // skeletal points
@@ -1043,7 +1043,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     downSpokeWriter->SetFileName(downFileName.c_str());
     downSpokeWriter->SetInputData(downSpokes_poly);
     downSpokeWriter->Update();
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 1047" << std::endl;
 //    mRows = nCrestPoints;
 //    mCols = numSteps + 1;
     // deal with skeletal mesh
@@ -1160,7 +1160,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     crestSpokeWriter->SetFileName(crestFileName.c_str());
     crestSpokeWriter->SetInputData(crestSpokes_poly);
     crestSpokeWriter->Update();
-
+    std::cout << "[GenerateSrepForEllipsoid:] line 1164" << std::endl;
     // deal with fold curve
     for(int i = 0; i < nCrestPoints; ++i)
     {
@@ -1614,6 +1614,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::BackwardFlow(int totalNum)
 {
 
     // 1. compute pairwise TPS
+    std::cout << "[BackwardFlow] Compute backward transformations" << std::endl;
     ComputePairwiseTps(totalNum);
     std::cout << "Finished computing transformation matrix." << std::endl;
 
@@ -1754,6 +1755,18 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton(int rows, i
         vtkSmartPointer<vtkPolyData>::New();
     mesh = reader->GetOutput();
     GenerateSrepForEllipsoid(mesh, rows, cols, forwardCount, rotateX, rotateY, rotateZ);
+}
+
+void vtkSlicerSkeletalRepresentationInitializerLogic::CLIInitialize(const std::string &vtkFilePath
+                                                                    , const std::string &outputPath
+                                                                    , int nRows, int nCols)
+{
+    SetOutputPath(outputPath);
+    SetRows(nRows);
+    SetCols(nCols);
+    FlowSurfaceMesh(vtkFilePath, 0.001, 0.01, 500, 100);
+
+    BackwardFlow(500);
 }
 
 //void vtkSlicerSkeletalRepresentationInitializerLogic::ReorderSpokes(vtkPolyData *input, vtkPoints* outputPts, vtkCellArray* outputPolys)
