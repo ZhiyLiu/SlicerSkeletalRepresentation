@@ -664,8 +664,8 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     int nCrestPoints = nRows*2 + (nCols-2)*2;
     double deltaTheta = 2*vtkMath::Pi()/(nCrestPoints);
     int numSteps = static_cast<int>(floor(nRows/2)); // steps from crest point to the skeletal point
-    MatrixXd skeletal_points_x(nRows, nCols);
-    MatrixXd skeletal_points_y(nRows, nCols);
+//    MatrixXd skeletal_points_x(nRows, nCols);
+//    MatrixXd skeletal_points_y(nRows, nCols);
 
     // Note that the middle line is a degenerated ellipse, on which there are less boundary point than outer ellipses
     MatrixXd reformed_points_x(nCrestPoints, numSteps+1);
@@ -680,29 +680,29 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         double y = mrb * sin(theta);
 
         // these crest points have no inward points (side or corner of the s-rep)
-        skeletal_points_x(r, c) = x;
-        skeletal_points_y(r, c) = y;
-        //skeletal_points_z(r, c) = z;
-        if(i < nCols - 1)
-        {
-            // top row of crest points
-            c += 1;
-        }
-        else if(i < nCols - 1 + nRows - 1)
-        {
-            // right side col of crest points ( if the top-left point is the origin)
-            r = r + 1;
-        }
-        else if(i < nCols - 1 + nRows - 1 + nCols - 1)
-        {
-            // bottom row of crest points
-            c = c - 1;
-        }
-        else
-        {
-            // left side col of crest points
-            r = r - 1;
-        }
+//        skeletal_points_x(r, c) = x;
+//        skeletal_points_y(r, c) = y;
+//        //skeletal_points_z(r, c) = z;
+//        if(i < nCols - 1)
+//        {
+//            // top row of crest points
+//            c += 1;
+//        }
+//        else if(i < nCols - 1 + nRows - 1)
+//        {
+//            // right side col of crest points ( if the top-left point is the origin)
+//            r = r + 1;
+//        }
+//        else if(i < nCols - 1 + nRows - 1 + nCols - 1)
+//        {
+//            // bottom row of crest points
+//            c = c - 1;
+//        }
+//        else
+//        {
+//            // left side col of crest points
+//            r = r - 1;
+//        }
         // compute skeletal points inward:
         double mx_ = (mra * mra - mrb * mrb) * cos(theta) / mra; // this is the middle line
         double my_ = .0;
@@ -718,37 +718,11 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             reformed_points_x(i, j) = tempX_;
             reformed_points_y(i, j) = tempY_;
 
-            if((i < nCols - 1 && i > 0) || (i > nCols + nRows - 2 && i < 2*nCols + nRows - 3))
-            {
-                //top and bot row
-                if(i < nCols - 1)
-                {
-                    // step from medial to top at current iteration on the top line
-                    int currR = numSteps - j;
-                    skeletal_points_x(currR, c-1) = tempX_;
-                    skeletal_points_y(currR, c-1) = tempY_;
-                }
-                else
-                {
-                    int currR = j + numSteps;
-                    skeletal_points_x(currR, c+1) = tempX_;
-                    skeletal_points_y(currR, c+1) = tempY_;
-                }
-            }
-
-//            if(j >= 0 && j < numSteps) {
-//                if (i == 0 || i >= 2*nCols + nRows - 3 || (i >= nCols - 1 && i < nCols + nRows - 1)) {
-//                    // left col & right col
-//                    resampled_crest_x(r_resample, j) = tempX_;
-//                    resampled_crest_y(r_resample, j) = tempY_;
-//                    if(j == numSteps - 1) r_resample++;
-//                }
-//            }
         }
 
     }
     // 3. compute the head points of spokes
-    MatrixXd skeletal_points(nRows*nCols, 3);
+//    MatrixXd skeletal_points(nRows*nCols, 3);
     MatrixXd reformed_skeletal_points(nCrestPoints*(numSteps+1), 3);
     MatrixXd reformed_up_points(nCrestPoints*(numSteps+1), 3);
     MatrixXd reformed_down_points(nCrestPoints*(numSteps+1), 3);
@@ -809,8 +783,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
                 v3 = v_n * v2;
                 double bx = (v3(0) + mx);
                 double by = (v3(1) + my);
-                double bz = v3(2);
-                bdry_points_crest.row(id_crest) << bx, by, bz;
+                bdry_points_crest.row(id_crest) << bx, by, 0.0;
                 skeletal_points_crest.row(id_crest) << mx, my, 0.0;
                 //shift_dir.row(id_crest) << v2(0), v2(1), v2(2);
                 id_crest++;
@@ -818,47 +791,10 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         }
 
     }
-    // skeletal points arranged in grid form
-    for(int i = 0; i < nRows; ++i)
-    {
-        for(int j = 0; j < nCols; ++j)
-        {
-            double mx = skeletal_points_x(i,j);
-            double my = skeletal_points_y(i,j);
-            double sB = my * mrx_o;
-            double cB = mx * mry_o;
-            double l = sqrt(sB*sB + cB*cB);
-            double sB_n, cB_n; // sin(theta), cos(theta)
-            if(l < EPS)
-            {
-                sB_n = sB;
-                cB_n = cB;
-            }
-            else
-            {
-                sB_n = sB / l;
-                cB_n = cB / l;
-            }
-            double cA = l / (mrx_o * mry_o); // cos(phi)
-            double sA = sqrt(1 - cA*cA); // sin(phi)
-            double sx = rx * cA * cB_n - mx;
-            double sy = ry * cA * sB_n - my;
-            double sz = rz * sA;
 
-            double bx = (sx + mx);
-            double by = (sy + my);
-            double bz = (sz);
-
-            skeletal_points.row(id_pt) << mx, my, 0.0;
-            bdry_points_up.row(id_pt) << bx, by, bz;
-            bdry_points_down.row(id_pt) << bx, by, -bz;
-            id_pt++;
-
-        }
-    }
     // 4. transform the s-rep
-    MatrixXd transpose_srep = skeletal_points.transpose(); // 3xn
-    Matrix3d srep_secondMoment = transpose_srep * skeletal_points; // 3x3
+    MatrixXd transpose_srep = reformed_skeletal_points.transpose(); // 3xn
+    Matrix3d srep_secondMoment = transpose_srep * reformed_skeletal_points; // 3x3
     SelfAdjointEigenSolver<Eigen::MatrixXd> es_srep(srep_secondMoment);
 
     Matrix3d rotation;
