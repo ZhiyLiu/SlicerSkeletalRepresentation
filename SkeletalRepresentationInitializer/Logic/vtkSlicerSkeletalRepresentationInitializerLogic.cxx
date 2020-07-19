@@ -608,7 +608,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     // create folder if not exist
     const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
     const std::string modelFolder = tempFolder + "/model";
-    std::cout << "[GenerateSrepForEllipsoid:] s-reps folder" << modelFolder << nRows << std::endl;
 
     if (!vtksys::SystemTools::FileExists(modelFolder, false))
     {
@@ -626,7 +625,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     using namespace Eigen;
     // the number of rows should be odd number
     double shift = 0.1; // shift fold curve off the inner spokes
-    std::cout << "[GenerateSrepForEllipsoid:] line 629" << std::endl;
     // 1. derive the best fitting ellipsoid from the deformed mesh
     vtkSmartPointer<vtkPoints> points = mesh->GetPoints();
     MatrixXd point_matrix(points->GetNumberOfPoints(), 3);
@@ -636,14 +634,12 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         points->GetPoint(i, p);
         point_matrix.row(i) << p[0], p[1], p[2];
     }
-    std::cout << "[GenerateSrepForEllipsoid:] line 639" << std::endl;
     MatrixXd center = point_matrix.colwise().mean();
     MatrixXd centered_point_mat = point_matrix - center.replicate(point_matrix.rows(), 1);
     MatrixXd point_matrix_transposed = centered_point_mat.transpose();
     Matrix3d second_moment = point_matrix_transposed * centered_point_mat;
     SelfAdjointEigenSolver<Eigen::MatrixXd> es_obj(second_moment);
     VectorXd radii = es_obj.eigenvalues();
-    std::cout << "[GenerateSrepForEllipsoid:] line 646" << std::endl;
     // notations consistent with wenqi's slides
     double rz = sqrt(radii(0));
     double ry = sqrt(radii(1));
@@ -666,7 +662,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
 
     // 2. compute the skeletal points
     int nCrestPoints = nRows*2 + (nCols-2)*2;
-    double deltaTheta = 2*vtkMath::Pi()/nCrestPoints;
+    double deltaTheta = 2*vtkMath::Pi()/(nCrestPoints);
     int numSteps = static_cast<int>(floor(nRows/2)); // steps from crest point to the skeletal point
     MatrixXd skeletal_points_x(nRows, nCols);
     MatrixXd skeletal_points_y(nRows, nCols);
@@ -674,7 +670,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     // Note that the middle line is a degenerated ellipse, on which there are less boundary point than outer ellipses
     MatrixXd reformed_points_x(nCrestPoints, numSteps+1);
     MatrixXd reformed_points_y(nCrestPoints, numSteps+1);
-    std::cout << "[GenerateSrepForEllipsoid:] line 678" << std::endl;
 //    int r_resample = 0;
     //MatrixXd skeletal_points_z(nRows, nCols);
     int r = 0, c = 0;
@@ -752,7 +747,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         }
 
     }
-    std::cout << "[GenerateSrepForEllipsoid:] line 757" << std::endl;
     // 3. compute the head points of spokes
     MatrixXd skeletal_points(nRows*nCols, 3);
     MatrixXd reformed_skeletal_points(nCrestPoints*(numSteps+1), 3);
@@ -766,7 +760,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     MatrixXd bdry_points_crest(nCrestPoints, 3);
     MatrixXd skeletal_points_crest(nCrestPoints, 3);
     int id_pt = 0; int id_crest = 0; int id_resampled = 0;
-    MatrixXd shift_dir(nCrestPoints, 3); // shift direction for every crest point
+    //MatrixXd shift_dir(nCrestPoints, 3); // shift direction for every crest point
 
     // reorganized points (the last row is the outermost boundary of the grid
     for(int i = 0; i < nCrestPoints; ++i)
@@ -818,13 +812,12 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
                 double bz = v3(2);
                 bdry_points_crest.row(id_crest) << bx, by, bz;
                 skeletal_points_crest.row(id_crest) << mx, my, 0.0;
-                shift_dir.row(id_crest) << v2(0), v2(1), v2(2);
+                //shift_dir.row(id_crest) << v2(0), v2(1), v2(2);
                 id_crest++;
             }
         }
 
     }
-    std::cout << "[GenerateSrepForEllipsoid:] line 828" << std::endl;
     // skeletal points arranged in grid form
     for(int i = 0; i < nRows; ++i)
     {
@@ -863,7 +856,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
 
         }
     }
-    std::cout << "[GenerateSrepForEllipsoid:] line 867" << std::endl;
     // 4. transform the s-rep
     MatrixXd transpose_srep = skeletal_points.transpose(); // 3xn
     Matrix3d srep_secondMoment = transpose_srep * skeletal_points; // 3x3
@@ -957,7 +949,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     upSpokeDirs->SetName("spokeDirection");
     downSpokeDirs->SetName("spokeDirection");
     crestSpokeDirs->SetName("spokeDirection");
-    std::cout << "[GenerateSrepForEllipsoid:] line 961" << std::endl;
     // use reorganized spokes (last row is the outermost ellipse
     for(int i = 0; i < nCrestPoints*(numSteps+1); ++i) {
         // skeletal points
@@ -971,7 +962,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         double bz_up = transformed_reformed_up(i, 2);
         int id1 = static_cast<int>(upSpokes_pts->InsertNextPoint(bx_up, by_up, bz_up));
 
-        if(i == (nCols-1) * (numSteps+1) / 2) {
+        if(i == (nCrestPoints / 4) * (numSteps+1)) {
             vtkSmartPointer<vtkConeSource> cone = vtkSmartPointer<vtkConeSource>::New();
             cone->SetCenter(bx_up, by_up, bz_up);
             cone->SetDirection(bx_up-mx, by_up-my, bz_up-mz);
@@ -1043,7 +1034,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     downSpokeWriter->SetFileName(downFileName.c_str());
     downSpokeWriter->SetInputData(downSpokes_poly);
     downSpokeWriter->Update();
-    std::cout << "[GenerateSrepForEllipsoid:] line 1047" << std::endl;
 //    mRows = nCrestPoints;
 //    mCols = numSteps + 1;
     // deal with skeletal mesh
@@ -1086,13 +1076,11 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     meshWriter->Update();
     // deal with crest spokes
     // crest head point on the bdry
-    MatrixXd transpose_crest_pdm = bdry_points_crest.transpose();
-    MatrixXd trans_crest_pdm = (rotation * transpose_crest_pdm).transpose();
+    MatrixXd trans_crest_pdm = bdry_points_crest * rotation.transpose();
     MatrixXd transformed_crest_pdm = trans_crest_pdm + center.replicate(trans_crest_pdm.rows(), 1);
 
     // crest base point on the skeletal sheet
-    MatrixXd transpose_crest_base = skeletal_points_crest.transpose();
-    MatrixXd trans_crest_base = (rotation * transpose_crest_base).transpose();
+    MatrixXd trans_crest_base = skeletal_points_crest * rotation.transpose();
     MatrixXd transformed_crest_base = trans_crest_base + center.replicate(trans_crest_base.rows(), 1);
 
     for(int i = 0; i < nCrestPoints; ++i)
@@ -1116,7 +1104,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             cy_t += shift_y;
             cz_t += shift_z;
         }
-        if(i == nCols + 2 * (nRows / 2 - 1)) {
+        if(i == 0) {
             vtkSmartPointer<vtkConeSource> cone = vtkSmartPointer<vtkConeSource>::New();
             cone->SetCenter(cx_b, cy_b, cz_b);
             cone->SetDirection(cx_b-cx_t, cy_b-cy_t, cz_b-cz_t);
@@ -1124,7 +1112,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             AddModelNodeToScene(cone->GetOutput(), arrowName.c_str(), true, 1, 0, 0);
 
         }
-        if(i == nCols / 2) {
+        if(i == nCrestPoints / 4) {
             vtkSmartPointer<vtkConeSource> cone = vtkSmartPointer<vtkConeSource>::New();
             cone->SetCenter(cx_b, cy_b, cz_b);
             cone->SetDirection(cx_b-cx_t, cy_b-cy_t, cz_b-cz_t);
@@ -1160,7 +1148,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     crestSpokeWriter->SetFileName(crestFileName.c_str());
     crestSpokeWriter->SetInputData(crestSpokes_poly);
     crestSpokeWriter->Update();
-    std::cout << "[GenerateSrepForEllipsoid:] line 1164" << std::endl;
     // deal with fold curve
     for(int i = 0; i < nCrestPoints; ++i)
     {

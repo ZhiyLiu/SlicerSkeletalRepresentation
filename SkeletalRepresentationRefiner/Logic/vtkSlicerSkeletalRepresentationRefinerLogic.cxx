@@ -723,7 +723,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
             vtkSmartPointer<vtkSmoothPolyDataFilter>::New();
     smoothFilter->SetInputData(retiledMesh);
     smoothFilter->SetNumberOfIterations(10);
-    smoothFilter->SetRelaxationFactor(0.1);
+    smoothFilter->SetRelaxationFactor(0.1); // 0.01
     smoothFilter->FeatureEdgeSmoothingOff();
     smoothFilter->BoundarySmoothingOn();
     smoothFilter->Update();
@@ -742,10 +742,10 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
 //    writer->Write();
 
     // compute distance difference
-//    ComputeDistDiff(impliedBoundary, inputMesh, outputFilePath);
+//    ComputeDistDiff(retImpliedBoundary, inputMesh, outputFilePath);
     // compute curvatures
 //    ComputeCurvatureDiff(impliedBoundary, outputFilePath, outputTargetPath);
-    ShowHeatMap(inputMesh, retImpliedBoundary);
+//    ShowHeatMap(inputMesh, retImpliedBoundary);
 }
 
 void vtkSlicerSkeletalRepresentationRefinerLogic::ShowHeatMap(vtkPolyData* inputMesh, vtkPolyData* impliedBoundary)
@@ -779,7 +779,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
     cout << maxDist << " " << minDist << endl;
     for (int id = 0; id < distArray->GetNumberOfTuples(); id++) {
         double oldValue = distArray->GetTuple1(id);
-        distArray->SetTuple1(id, oldValue * 0.05);
+        distArray->SetTuple1(id, oldValue/* * 0.05*/); // unit of value: mm
     }
     distArray->Modified();
     // model node
@@ -794,7 +794,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::VisualizeHeatMap(vtkPolyData *
     vtkSmartPointer<vtkColorTransferFunction> colorTransferFunction =
         vtkSmartPointer<vtkColorTransferFunction>::New();
     colorTransferFunction->AddRGBPoint(0.0, 0, 0, 1);
-    colorTransferFunction->AddRGBPoint(1.76*0.05, 1, 0, 0);
+    colorTransferFunction->AddRGBPoint(1.76, 1, 0, 0);
     vtkSmartPointer<vtkMRMLNode> newNode = scene->AddNewNodeByClass("vtkMRMLProceduralColorNode", "DistHeatMap");
     vtkSmartPointer<vtkMRMLProceduralColorNode> colorNode = vtkMRMLProceduralColorNode::SafeDownCast(newNode);
     colorNode->SetType(13);
@@ -881,7 +881,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ComputeCurvatureDiff(vtkPolyDa
     // difference of curviness from target boundary
     vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
 //    reader->SetFileName(mTargetMeshFilePath.c_str());
-    reader->SetFileName("/playpen/ra_job/EvaluateFit/one_eg_curvedness/init/init_implied_boundary.vtk");
+    reader->SetFileName(mTargetMeshFilePath.c_str());
     reader->Update();
     vtkSmartPointer<vtkPolyData> targetMesh = reader->GetOutput();
     vtkSmartPointer<vtkPolyData> heatmapCurvedness = vtkSmartPointer<vtkPolyData>::New();

@@ -140,9 +140,12 @@ void qSlicerSkeletalRepresentationRefinerModuleWidget::showImpliedBoundary()
     Q_D(qSlicerSkeletalRepresentationRefinerModuleWidget);
     int interpolationLevel = int(d->sl_interp->value());
     std::string srepFileName = d->lb_srepPath->text().toUtf8().constData();
+    std::string outputPath = d->lb_outputpath->text().toUtf8().constData();
+    std::string outputFilePath = outputPath + "/test";
+    std::string outputTargetPath = outputPath + "/test_target";
     d->logic()->ShowImpliedBoundary(interpolationLevel, srepFileName,
-                                    "/playpen/ra_job/EvaluateFit/one_eg_curvedness/init/init",
-                                    "/playpen/ra_job/EvaluateFit/one_eg_curvedness/init/init_target");
+                                    outputFilePath,
+                                    outputTargetPath);
 }
 
 void qSlicerSkeletalRepresentationRefinerModuleWidget::showBoundaryDiff()
