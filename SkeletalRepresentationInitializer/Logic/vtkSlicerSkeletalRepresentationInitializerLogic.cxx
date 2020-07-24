@@ -678,31 +678,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         double theta = vtkMath::Pi() /*- deltaTheta * floor(nRows/2)*/ - deltaTheta*i;
         double x = mra * cos(theta);
         double y = mrb * sin(theta);
-
-        // these crest points have no inward points (side or corner of the s-rep)
-//        skeletal_points_x(r, c) = x;
-//        skeletal_points_y(r, c) = y;
-//        //skeletal_points_z(r, c) = z;
-//        if(i < nCols - 1)
-//        {
-//            // top row of crest points
-//            c += 1;
-//        }
-//        else if(i < nCols - 1 + nRows - 1)
-//        {
-//            // right side col of crest points ( if the top-left point is the origin)
-//            r = r + 1;
-//        }
-//        else if(i < nCols - 1 + nRows - 1 + nCols - 1)
-//        {
-//            // bottom row of crest points
-//            c = c - 1;
-//        }
-//        else
-//        {
-//            // left side col of crest points
-//            r = r - 1;
-//        }
         // compute skeletal points inward:
         double mx_ = (mra * mra - mrb * mrb) * cos(theta) / mra; // this is the middle line
         double my_ = .0;

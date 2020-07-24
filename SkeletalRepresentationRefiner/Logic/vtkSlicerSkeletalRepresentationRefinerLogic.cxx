@@ -723,7 +723,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::ShowImpliedBoundary(int interp
             vtkSmartPointer<vtkSmoothPolyDataFilter>::New();
     smoothFilter->SetInputData(retiledMesh);
     smoothFilter->SetNumberOfIterations(10);
-    smoothFilter->SetRelaxationFactor(0.1); // 0.01
+    smoothFilter->SetRelaxationFactor(0.05); // 0.01
     smoothFilter->FeatureEdgeSmoothingOff();
     smoothFilter->BoundarySmoothingOn();
     smoothFilter->Update();
@@ -2418,8 +2418,9 @@ std::vector<vtkSpoke*>& vtkSlicerSkeletalRepresentationRefinerLogic::RefinePartO
     }
 
     mSrep = srep;
+    auto orig_spokes = srep->GetAllSpokes();
     vtkSmartPointer<vtkPolyData> origSrep = vtkSmartPointer<vtkPolyData>::New();
-    ConvertSpokes2PolyData(srep->GetAllSpokes(), origSrep);
+    ConvertSpokes2PolyData(orig_spokes, origSrep);
 
     Visualize(origSrep, "Before refinement", 1, 0, 0);
 
@@ -2437,12 +2438,11 @@ std::vector<vtkSpoke*>& vtkSlicerSkeletalRepresentationRefinerLogic::RefinePartO
     vtkSmartPointer<vtkPolyData> refinedSrep = vtkSmartPointer<vtkPolyData>::New();
     ConvertSpokes2PolyData(srep->GetAllSpokes(), refinedSrep);
     Visualize(refinedSrep, "Refined interior spokes", 0, 1, 1);
-
     // write to vtp file
     std::string outputFile(mOutputPath);
     std::string fileName = vtksys::SystemTools::GetFilenameName(srepFileName);
     outputFile = outputFile + "//" + newFilePrefix + fileName;
-    SaveSpokes2Vtp(srep->GetAllSpokes(), outputFile);
+    SaveSpokes2Vtp(orig_spokes, outputFile);
     return srep->GetAllSpokes();
 }
 

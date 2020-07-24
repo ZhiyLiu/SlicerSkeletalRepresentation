@@ -91,6 +91,14 @@ std::vector<vtkSpoke *> &vtkSrep::GetAllSpokes()
     return spokes;
 }
 
+std::vector<vtkSpoke *> &vtkSrep::copyFrom(std::vector<vtkSpoke *> &source)
+{
+    for (int i = 0; i < source.size(); ++i) {
+        spokes[i] = source[i];
+    }
+    return spokes;
+}
+
 std::vector<double> &vtkSrep::GetAllSkeletalPoints()
 {
     skeletalPts.clear();
