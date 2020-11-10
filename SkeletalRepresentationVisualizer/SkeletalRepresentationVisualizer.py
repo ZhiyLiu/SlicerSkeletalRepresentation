@@ -188,6 +188,19 @@ class SkeletalRepresentationVisualizerLogic(ScriptedLoadableModuleLogic):
     #     numEndAtoms = 0
     #     numStdAtoms = 0
 
+    def hasImageData(self,volumeNode):
+        """This is an example logic method that
+        returns true if the passed in volume
+        node has valid image data
+        """
+        if not volumeNode:
+          logging.debug('hasImageData failed: no volume node')
+          return False
+        if volumeNode.GetImageData() is None:
+          logging.debug('hasImageData failed: no image data in volume node')
+          return False
+        return True
+
     def distance(self, p0, p1):
         return math.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2 + (p0[2] - p1[2]) ** 2)
 
@@ -644,6 +657,7 @@ class SkeletalRepresentationVisualizerLogic(ScriptedLoadableModuleLogic):
         outputFileName = outputFolder + '/legacy.m3d'
         srep_io.writeSrepToM3D(outputFileName, legacySrep)
         logging.info('Processing completed')
+
     def run(self, filename, dist, outputFolder):
 
         """
