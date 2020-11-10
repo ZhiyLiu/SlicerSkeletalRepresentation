@@ -1986,6 +1986,7 @@ std::vector<vtkSpoke*>& vtkSlicerSkeletalRepresentationRefinerLogic::RefinePartO
     std::string fileName = vtksys::SystemTools::GetFilenameName(srepFileName);
     outputFile = outputFile + "//" + newFilePrefix + fileName;
     SaveSpokes2Vtp(orig_spokes, outputFile);
+    delete [] coeff;
     return srep->GetAllSpokes();
 }
 
@@ -2071,7 +2072,6 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::RefineCrestSpokes(const string
         delete mSrep;
         mSrep = nullptr;
     }
-    delete [] coeff;
 }
 
 double vtkSlicerSkeletalRepresentationRefinerLogic::TotalDistOfLeftTopSpoke(vtkSrep *tempSrep,
