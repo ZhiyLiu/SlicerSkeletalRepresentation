@@ -972,7 +972,7 @@ void vtkSlicerSkeletalRepresentationRefinerLogic::Parse(const std::string &model
     reader->Update();
 
     vtkSmartPointer<vtkPolyData> spokesPolyData = reader->GetOutput();
-    Visualize(spokesPolyData, "Skeletal sheet", 0, 0, 0);
+
     vtkSmartPointer<vtkPointData> spokesPointData = spokesPolyData->GetPointData();
     int numOfArrays = spokesPointData->GetNumberOfArrays();
     vtkIdType numOfSpokes = spokesPolyData->GetNumberOfPoints();
