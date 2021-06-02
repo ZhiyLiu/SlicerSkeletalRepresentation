@@ -56,6 +56,7 @@
 #include <vtkWindowedSincPolyDataFilter.h>
 #include <vtkAppendPolyData.h>
 #include <vtkConeSource.h>
+#include <vtkSTLReader.h>
 // Eigen includes
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
@@ -531,11 +532,12 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::ShowFittingEllipsoid(vtkPo
         vtkSmartPointer<vtkMassProperties>::New();
     mass->SetInputData(mesh);
     mass->Update();
-
+    std::cout << radii(0) << " " << radii(1) << " " << radii(2) << std::endl;
     double volume_factor = pow(mass->GetVolume() / ellipsoid_volume, 1.0 / 3.0);
     radii(0) *= volume_factor;
     radii(1) *= volume_factor;
     radii(2) *= volume_factor;
+    std::cout << radii(0) << " " << radii(1) << " " << radii(2) << " " << volume_factor<< std::endl;
     // obtain the best fitting ellipsoid from the second moment matrix
     vtkSmartPointer<vtkParametricEllipsoid> ellipsoid =
         vtkSmartPointer<vtkParametricEllipsoid>::New();
@@ -654,7 +656,6 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     rz *= volume_factor;
     ry *= volume_factor;
     rx *= volume_factor;
-
     double mrx_o = (rx*rx-rz*rz)/rx; // m_a
     double mry_o = (ry*ry-rz*rz)/ry; // m_b
     double mrb = mry_o * ELLIPSE_SCALE;
@@ -776,6 +777,10 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     std::string arrowName = "Before rotation orientations";
 
     rotation = es_obj.eigenvectors(); // 3 by 3 rotation relative to deformed object
+    // Store or align orientations of s-reps
+    AlignOrientations(&rotation(0,1), &rotation(1,1), &rotation(2,1),
+                      &rotation(0,2), &rotation(1,2), &rotation(2,2),
+                      &rotation(0,0), &rotation(1,0), &rotation(2,0));
 
     if(rotateX) {
         rotation(0,1) *= -1;
@@ -815,6 +820,11 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     vtkSmartPointer<vtkPolyData>  srep_poly       = vtkSmartPointer<vtkPolyData>::New();
     vtkSmartPointer<vtkPoints>    skeletal_sheet  = vtkSmartPointer<vtkPoints>::New();
     vtkSmartPointer<vtkCellArray> skeletal_mesh   = vtkSmartPointer<vtkCellArray>::New();
+
+    // Spline is the center line of the ellipse of s-rep for the ellipsoid
+    vtkSmartPointer<vtkPolyData>  spline_poly       = vtkSmartPointer<vtkPolyData>::New();
+    vtkSmartPointer<vtkPoints>    spline_points  = vtkSmartPointer<vtkPoints>::New();
+    vtkSmartPointer<vtkCellArray> spline_curve   = vtkSmartPointer<vtkCellArray>::New();
 
     vtkSmartPointer<vtkPolyData>  upSpokes_poly      = vtkSmartPointer<vtkPolyData>::New();
     vtkSmartPointer<vtkPoints>    upSpokes_pts       = vtkSmartPointer<vtkPoints>::New();
@@ -902,6 +912,10 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
         // spoke length and dir
         vtkVector3d downSpoke(bx_down-mx, by_down-my, bz_down-mz);
         double downSpokeLength = downSpoke.Normalize();
+        if(std::isnan(downSpokeLength)) {
+            std::cout << "========nan============" << std::endl;
+            downSpokeLength = 0;
+        }
         downSpokeLengths->InsertNextTuple1(downSpokeLength);
         downSpokeDirs->InsertNextTuple3(downSpoke.GetX(), downSpoke.GetY(), downSpoke.GetZ());
 
@@ -948,6 +962,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
 //    mRows = nCrestPoints;
 //    mCols = numSteps + 1;
     // deal with skeletal mesh
+    int id_spline_pts = 0;
     for(int i = 0; i < nCrestPoints * (numSteps+1); ++i)
     {
         double mx = transformed_skeletal_points_reformed(i, 0);
@@ -975,10 +990,25 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
             quad->GetPointIds()->SetId(3, current_id + 1);  // an outward point on the same radial line
             skeletal_mesh->InsertNextCell(quad);
         }
+        // Add spline points
+        if(current_col == 0) {
+            spline_points->InsertNextPoint(mx, my, mz);
+            if(id_spline_pts > 0) {
+                vtkSmartPointer<vtkLine> segment = vtkSmartPointer<vtkLine>::New();
+                segment->GetPointIds()->SetId(0, id_spline_pts);
+                segment->GetPointIds()->SetId(1, id_spline_pts-1);
+                spline_curve->InsertNextCell(segment);
+            }
+            id_spline_pts += 1;
+        }
     }
     srep_poly->SetPoints(skeletal_sheet);
     srep_poly->SetPolys(skeletal_mesh);
     AddModelNodeToScene(srep_poly, "skeletal mesh for ellipsoid", true, 0, 0, 0);
+
+    spline_poly->SetPoints(spline_points);
+    spline_poly->SetPolys(spline_curve);
+    AddModelNodeToScene(spline_poly, "spline", true, 0, 0, 0);
 
     const std::string meshFileName = modelFolder + "/mesh" + std::to_string(totalNum) + ".vtk";
     vtkSmartPointer<vtkPolyDataWriter> meshWriter = vtkSmartPointer<vtkPolyDataWriter>::New();
@@ -1100,6 +1130,64 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::GenerateSrepForEllipsoid(v
     curveWriter->SetFileName(curveFileName.c_str());
     curveWriter->SetInputData(foldCurve_poly);
     curveWriter->Update();
+}
+
+void vtkSlicerSkeletalRepresentationInitializerLogic::AlignOrientations(double* rotX1, double* rotX2, double* rotX3,
+                                                                        double* rotY1, double* rotY2, double* rotY3,
+                                                                        double* rotZ1, double* rotZ2, double* rotZ3)
+{
+    const std::string tempFolder(this->GetApplicationLogic()->GetTemporaryPath());
+    const std::string orientFile = tempFolder + "/global_orientation.txt";
+    if (!vtksys::SystemTools::FileExists(orientFile, true)) {
+        // save current orientation as the global template
+        std::stringstream output;
+
+        output<<*rotX1 << " " << *rotX2 << " " << *rotX3 <<std::endl;
+        output<<*rotY1 << " " << *rotY2 << " " << *rotY3 <<std::endl;
+        output<<*rotZ1 << " " << *rotZ2 << " " << *rotZ3 <<std::endl;
+
+        std::ofstream out_file;
+        out_file.open(orientFile);
+        out_file << output.rdbuf();
+        out_file.close();
+
+        std::cout << "Initiate the global alignment template" << std::endl;
+    }
+    else {
+        // read and align the orientation with the template
+        std::ifstream infile(orientFile);
+        double x1, x2, x3;
+        std::string line;
+        std::getline(infile, line);
+        std::stringstream linestream(line);
+        linestream >> x1 >> x2>> x3;
+        if(*rotX1 * x1 + *rotX2 * x2 + *rotX3 * x3 < 0){
+            // revert the current X
+            *rotX1 *= -1;
+            *rotX2 *= -1;
+            *rotX3 *= -1;
+        }
+        std::string line2;
+        std::getline(infile, line2);
+        std::stringstream linestream2(line2);
+        linestream2 >> x1 >> x2>> x3;
+        if(*rotY1 * x1 + *rotY2 * x2 + *rotY3 * x3 < 0){
+            // revert the current Y
+            *rotY1 *= -1;
+            *rotY2 *= -1;
+            *rotY3 *= -1;
+        }
+        std::string line3;
+        std::getline(infile, line3);
+        std::stringstream linestream3(line3);
+        linestream3 >> x1 >> x2>> x3;
+        if(*rotZ1 * x1 + *rotZ2 * x2 + *rotZ3 * x3 < 0){
+            // revert the current Z
+            *rotZ1 *= -1;
+            *rotZ2 *= -1;
+            *rotZ3 *= -1;
+        }
+    }
 }
 
 void vtkSlicerSkeletalRepresentationInitializerLogic::HideNodesByNameByClass(const std::string & nodeName, const std::string &className)
@@ -1652,6 +1740,18 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::RotateSkeleton(int rows, i
     vtkSmartPointer<vtkPolyData> mesh =
         vtkSmartPointer<vtkPolyData>::New();
     mesh = reader->GetOutput();
+
+    //test code
+    const std::string testEllFile = "/playpen/workspace/Simulate_Shapes/pySimShapes/slicer_ellipsoid.vtk";
+//    vtkSmartPointer<vtkSTLReader> stlReader =
+//            vtkSmartPointer<vtkSTLReader>::New();
+//    stlReader->SetFileName(testEllFile.c_str());
+//    stlReader->Update();
+//    mesh = stlReader->GetOutput();
+
+    reader->SetFileName(testEllFile.c_str());
+    reader->Update();
+    mesh = reader->GetOutput();
     GenerateSrepForEllipsoid(mesh, rows, cols, forwardCount, rotateX, rotateY, rotateZ);
 }
 
@@ -1659,6 +1759,7 @@ void vtkSlicerSkeletalRepresentationInitializerLogic::CLIInitialize(const std::s
                                                                     , const std::string &outputPath
                                                                     , int nRows, int nCols)
 {
+    std::cout << "Initialize the shape data: " << vtkFilePath << std::endl;
     SetOutputPath(outputPath);
     SetRows(nRows);
     SetCols(nCols);

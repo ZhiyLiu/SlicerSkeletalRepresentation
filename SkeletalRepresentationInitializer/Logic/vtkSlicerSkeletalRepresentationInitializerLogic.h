@@ -79,6 +79,10 @@ public:
   void GenerateSrepForEllipsoid(vtkPolyData* mesh, int rows, int cols, int forwardCount,
                                 bool rotateX = false, bool rotateY = false,
                                 bool rotateZ = false);
+  // Store or align orientations to keep them consistent for a population
+  void AlignOrientations(double* rotX1, double* rotX2, double* rotX3,
+                         double* rotY1, double* rotY2, double* rotY3,
+                         double* rotZ1, double* rotZ2, double* rotZ3);
 
   int InklingFlow(const std::string &filename, double dt, double smooth_amount, int max_iter, int freq_output, double threshold);
 

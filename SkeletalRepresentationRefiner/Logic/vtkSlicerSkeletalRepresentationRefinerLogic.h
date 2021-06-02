@@ -134,6 +134,8 @@ public:
                          const std::string &imgFileName,
                          const std::string &outputPath,
                          int interpolationLevel = 3);
+  void CLIInterpolate(const std::string &srepFileName,
+                         int interpolationLevel = 3);
 
 protected:
   vtkSlicerSkeletalRepresentationRefinerLogic();
